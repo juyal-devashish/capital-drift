@@ -45,5 +45,5 @@ Tick & Tie reconciles the same figure across several documents at one point in t
 
 ## Open questions
 
-- Did any Tick & Tie code come from the user's Tech Observer work? If so, it's employer code and must not go public or to FiXA. **Settle this before publishing.**
+- ~~Did any Tick & Tie code come from the user's Tech Observer work?~~ **Settled on 2026-11-16:** the user confirmed it's separate from their Tech Observer work, so nothing here is employer code.
 - Should the project keep Tick & Tie's auth roles (analyst, controller, auditor, admin), or switch to board member, property manager and admin?
