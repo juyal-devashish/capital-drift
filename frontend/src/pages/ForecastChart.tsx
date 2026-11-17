@@ -1,7 +1,7 @@
 // Reserve balance: the years already seen (one line) and the forecast (median line with the
 // 10th-90th percentile band), drawn as inline SVG. Below zero is shaded: a modelled shortfall.
-import type { ForecastData } from "../../types";
-import { usdShort } from "../../format";
+import type { ForecastData } from "../types";
+import { usdShort } from "../format";
 
 const W = 720;
 const H = 240;

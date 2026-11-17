@@ -1,29 +1,24 @@
-// Help & guide: the workflow end to end, what each role does, how to review an exception, what
-// each kind of discrepancy and status means, shortcuts, and common questions.
+// Help & guide: what the app does, what each role can do, how the warnings and the queue work, and
+// what the colours and numbers mean.
 import { Link } from "react-router-dom";
 import { ROLE_NAMES, useAuth } from "../auth";
-import { Kbd } from "../components/Marks";
-import { STATUS_NAMES, TYPE_HINTS, TYPE_NAMES } from "../format";
 import { usePageTitle } from "../prefs";
 import type { Role } from "../types";
 
 const ROLE_DUTIES: Record<Role, string[]> = {
-  analyst: ["Runs reviews on document sets", "Works through the exception queue", "Confirms, rejects or corrects each item"],
-  controller: ["Oversees the queue and reports", "Records decisions on exceptions", "Follows progress per company"],
-  auditor: ["Reads every exception and its evidence", "Inspects the audit log and review traces", "Cannot change anything"],
-  admin: ["Uploads documents and adds companies", "Sets the review rules", "Manages access and watches system status"],
-  board_member: ["Sees which associations are red and why", "Reads the capital review queue and its log", "Cannot change anything"],
-  property_manager: ["Works the capital review queue", "Confirms or dismisses warnings", "Says which part an invoice was for"],
+  board_member: ["Sees which associations are red and why", "Reads the review queue, its history and the forecast", "Cannot change anything"],
+  property_manager: ["Works the review queue", "Confirms or dismisses warnings, with a comment", "Says which part of the plan an invoice paid for"],
+  admin: ["Everything a property manager can do", "Rebuilds the whole queue after a data load"],
 };
 
 const SECTIONS = [
-  ["workflow", "How it works"],
+  ["what", "What it does"],
   ["roles", "Roles"],
-  ["reviewing", "Reviewing an exception"],
-  ["kinds", "Kinds of discrepancy"],
-  ["statuses", "Severity and status"],
-  ["shortcuts", "Keyboard shortcuts"],
-  ["faq", "Questions"],
+  ["warnings", "The three warnings"],
+  ["queue", "Working the queue"],
+  ["colours", "Board colours"],
+  ["forecast", "The forecast"],
+  ["data", "About the data"],
 ] as const;
 
 export function Help() {
@@ -34,7 +29,7 @@ export function Help() {
       <header className="page-head">
         <p className="eyebrow">Help</p>
         <h1>Help & guide</h1>
-        <p className="lede">Everything you need to review a company's figures, from upload to sign-off.</p>
+        <p className="lede">How the Capital Drift Monitor checks an association's spending against its reserve study.</p>
       </header>
 
       <div className="help-layout">
@@ -45,41 +40,35 @@ export function Help() {
             </a>
           ))}
         </nav>
-
-        <div>
-          <section id="workflow" className="card help-section">
-            <h2>How it works</h2>
+        <div className="help-body stack">
+          <section id="what" className="panel">
+            <h2>What it does</h2>
             <ol>
               <li>
-                <strong>Upload</strong> one company's documents for one fiscal year: annual report, board deck, press release, management accounts and KPI file
-                (<Link to="/upload">Upload documents</Link>, admins).
+                <strong>Places every invoice against the reserve study.</strong> Rules first; Claude answers the invoices the rules can't place;
+                what neither can place goes to the review queue.
               </li>
               <li>
-                <strong>Review.</strong> The agents read every document, extract each figure with its exact location, and compare every figure across documents
-                and against last year's audited numbers. A typical set takes a few seconds (<Link to="/sets">Document sets</Link>).
+                <strong>Watches spending against the plan.</strong> Each part of the study is checked month by month, and a warning reads as a
+                repair-or-replace call.
               </li>
               <li>
-                <strong>Decide.</strong> Each disagreement becomes an exception in the <Link to="/queue">queue</Link>. Open one to see the figure highlighted in
-                every source, then confirm it, mark it a false positive, or record the correct value.
+                <strong>Lets a property manager decide.</strong> Every decision is logged, and the warnings rerun as soon as an invoice is placed.
               </li>
               <li>
-                <strong>Report.</strong> Track progress in <Link to="/reports">Reports</Link>, export CSVs, and use the <Link to="/audit">Audit log</Link> as the
-                record of who decided what and why.
+                <strong>Forecasts the reserve balance</strong> ten years ahead, so the board can see who runs short first.
               </li>
             </ol>
           </section>
 
-          <section id="roles" className="card help-section">
+          <section id="roles" className="panel">
             <h2>Roles</h2>
-            {user && (
-              <p>
-                You are signed in as <strong>{user.username}</strong> with the <strong>{ROLE_NAMES[user.role]}</strong> role.
-              </p>
-            )}
-            <div className="role-cards">
+            <div className="grid-3">
               {(Object.keys(ROLE_DUTIES) as Role[]).map((r) => (
                 <div key={r}>
-                  <span className={`role-badge role-${r}`}>{ROLE_NAMES[r]}</span>
+                  <h3>
+                    {ROLE_NAMES[r]} {user?.role === r && <span className="role-badge">You</span>}
+                  </h3>
                   <ul>
                     {ROLE_DUTIES[r].map((d) => (
                       <li key={d}>{d}</li>
@@ -90,102 +79,68 @@ export function Help() {
             </div>
           </section>
 
-          <section id="reviewing" className="card help-section">
-            <h2>Reviewing an exception</h2>
-            <ol>
-              <li>The headline compares what most documents say with the outlier, and shows the difference.</li>
+          <section id="warnings" className="panel">
+            <h2>The three warnings</h2>
+            <ul>
               <li>
-                <strong>What each document reports</strong> lists every source. A green tick means it agrees; a red circle marks the figure that does not. Click a
-                document to see the page or cell with the figure highlighted.
+                <strong>Failing early:</strong> repairs are arriving much faster than usual for a part this age, and the plan doesn't replace it
+                until more than a year out.
               </li>
               <li>
-                Choose a decision: <strong>Confirm discrepancy</strong> (the documents really disagree), <strong>False positive</strong> (needs a reason) or{" "}
-                <strong>Record the correct value</strong> (needs the value and its source). Values accept shorthand such as <code>1,234.5m</code> or{" "}
-                <code>86.4cr</code>.
+                <strong>Past due:</strong> the planned replacement year has passed and no completed replacement has been found.
               </li>
-              <li>With “Then open the next item” ticked, saving takes you straight to the next exception in your list.</li>
-              <li>Need many decisions at once? Tick rows in the queue and use the bulk bar.</li>
-            </ol>
+              <li>
+                <strong>Over budget:</strong> a replacement has cost more than the plan's inflated cost plus a 15% contingency.
+              </li>
+            </ul>
           </section>
 
-          <section id="kinds" className="card help-section">
-            <h2>Kinds of discrepancy</h2>
-            <div className="glossary">
-              {Object.entries(TYPE_NAMES).map(([k, name]) => (
-                <div key={k}>
-                  <strong>
-                    <Link to={`/queue?type=${k}`}>{name}</Link>
-                  </strong>
-                  <span>{TYPE_HINTS[k]}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section id="statuses" className="card help-section">
-            <h2>Severity and status</h2>
+          <section id="queue" className="panel">
+            <h2>Working the queue</h2>
             <p>
-              <strong>Severity</strong> reflects how much the error matters: unit errors, stale figures and sign flips are always high; value differences are high
-              or medium depending on size and whether the figure is a headline one (revenue, EBITDA, net income, total assets, cash); missing figures and unusual
-              changes are medium.
+              Start with the past-due warnings. Each one lists <em>candidate invoices</em>: invoices from that association, big enough to be part
+              of a replacement, that nobody could place or that went to the same kind of part in another building. Placing them correctly reruns
+              the warnings at once, and the page shows what cleared. Confirm a warning that is real; dismiss one that isn't, with a comment for
+              the board. A dismissal is never undone by a rerun.
             </p>
-            <ul>
-              {Object.entries(STATUS_NAMES).map(([k, v]) => (
-                <li key={k}>
-                  <strong>{v}</strong>
-                  {
-                    {
-                      open: ": waiting for a decision.",
-                      accepted: ": a reviewer confirmed the documents disagree; the source needs fixing.",
-                      rejected: ": a reviewer judged it not to be a real problem, with a reason.",
-                      overridden: ": a reviewer recorded the correct value and where it comes from.",
-                      resolved_by_rerun: ": a later review no longer finds it (the documents were fixed).",
-                    }[k]
-                  }
-                </li>
-              ))}
-            </ul>
+            <p>
+              <Link to="/queue">Open the review queue</Link>
+            </p>
           </section>
 
-          <section id="shortcuts" className="card help-section">
-            <h2>Keyboard shortcuts</h2>
+          <section id="colours" className="panel">
+            <h2>Board colours</h2>
             <ul>
               <li>
-                <Kbd>Ctrl</Kbd> <Kbd>K</Kbd> search everything and run commands
+                <strong>Red:</strong> a part failing early or past its planned replacement, either not yet checked or confirmed.
               </li>
               <li>
-                <Kbd>j</Kbd> <Kbd>k</Kbd> move through lists and exceptions, <Kbd>Enter</Kbd> to open
+                <strong>Amber:</strong> a replacement over budget, or invoices not yet placed worth at least 10% of the yearly reserve
+                contribution.
               </li>
               <li>
-                <Kbd>1</Kbd> <Kbd>2</Kbd> <Kbd>3</Kbd> choose a decision, <Kbd>Ctrl</Kbd> <Kbd>Enter</Kbd> to save
-              </li>
-              <li>
-                <Kbd>g</Kbd> then <Kbd>q</Kbd> / <Kbd>s</Kbd> / <Kbd>r</Kbd> / <Kbd>o</Kbd> go to queue, sets, reports, overview
-              </li>
-              <li>
-                <Kbd>?</Kbd> show all shortcuts
+                <strong>Green:</strong> none of those. The colours track spending against the plan, not how well funded the reserve is; the
+                forecast covers that.
               </li>
             </ul>
           </section>
 
-          <section id="faq" className="card help-section">
-            <h2>Questions</h2>
-            <ul>
-              <li>
-                <strong>Does re-running a review lose decisions?</strong> No. Decisions are kept. Open exceptions that a re-run no longer finds are closed
-                automatically as “No longer found”.
-              </li>
-              <li>
-                <strong>Where do the numbers come from?</strong> From the documents themselves, read by deterministic parsers, so every figure links back to a page
-                and position or a spreadsheet cell. AI is only used, when enabled, to recognise unfamiliar row labels.
-              </li>
-              <li>
-                <strong>Can I keep a filtered list?</strong> Yes. Filter the queue and choose <em>Save view</em>; it appears under Quick views in the menu.
-              </li>
-              <li>
-                <strong>How do I share results?</strong> Export CSVs from the queue, Reports or Audit log, or print the Reports page.
-              </li>
-            </ul>
+          <section id="forecast" className="panel">
+            <h2>The forecast</h2>
+            <p>
+              The reserve balance is replayed from the study's starting balance and then simulated ten years ahead over the study's replacement
+              schedule. Past-due parts are due now, parts warned as failing early come due within three years, and replacement costs vary as much
+              as this portfolio's finished projects did. The study doesn't say whether contributions rise, so both cases are shown. A balance below
+              zero is a modelled shortfall: work that would need other money, or would be put off.
+            </p>
+          </section>
+
+          <section id="data" className="panel">
+            <h2>About the data</h2>
+            <p>
+              Everything here is synthetic: twenty made-up associations near Philadelphia, their reserve studies and ten years of invoices, with
+              planted problems to find. <Link to="/results">The results page</Link> shows how well each step does against them.
+            </p>
           </section>
         </div>
       </div>

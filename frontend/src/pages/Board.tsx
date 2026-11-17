@@ -1,13 +1,13 @@
 // Board view: every association, red first, with the reasons in plain words. Read-only for everyone;
 // each warning says whether a property manager has checked it yet.
 import { Link } from "react-router-dom";
-import { api } from "../../api";
-import { CAPITAL_DECIDE_ROLES, useAuth } from "../../auth";
-import { EmptyState, ErrorNote, Loading } from "../../components/Marks";
-import { KIND_NAMES, plural, usd } from "../../format";
-import type { ForecastRow } from "../../types";
-import { useAsync } from "../../hooks";
-import { usePageTitle } from "../../prefs";
+import { api } from "../api";
+import { CAPITAL_DECIDE_ROLES, useAuth } from "../auth";
+import { EmptyState, ErrorNote, Loading } from "../components/Marks";
+import { KIND_NAMES, plural, usd } from "../format";
+import type { ForecastRow } from "../types";
+import { useAsync } from "../hooks";
+import { usePageTitle } from "../prefs";
 
 const STATUS_WORDS = { red: "Needs attention", amber: "Watch", green: "On plan" } as const;
 
@@ -48,7 +48,7 @@ function RunsShort() {
             {rows.map((r) => (
               <tr key={r.association_id}>
                 <td>
-                  <Link className="row-link" to={`/capital/associations/${encodeURIComponent(r.association_id)}`}>
+                  <Link className="row-link" to={`/associations/${encodeURIComponent(r.association_id)}`}>
                     <span>
                       <i className={`light light-${r.status}`} aria-hidden="true" /> {r.name}
                     </span>
@@ -102,7 +102,7 @@ export function Board() {
               <i className="light light-green" aria-hidden="true" /> {count("green")} on plan
             </span>
             {can(...CAPITAL_DECIDE_ROLES) && (
-              <Link className="button" to="/capital/queue">
+              <Link className="button" to="/queue">
                 Open the review queue
               </Link>
             )}
@@ -112,7 +112,7 @@ export function Board() {
           </p>
           <div className="board-grid">
             {b.associations.map((a) => (
-              <Link key={a.id} to={`/capital/associations/${encodeURIComponent(a.id)}`} className={`card board-card is-${a.status}`}>
+              <Link key={a.id} to={`/associations/${encodeURIComponent(a.id)}`} className={`card board-card is-${a.status}`}>
                 <h3>
                   <i className={`light light-${a.status}`} aria-hidden="true" />
                   {a.name}

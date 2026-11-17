@@ -76,20 +76,12 @@ export function useAuth(): AuthState {
 }
 
 // Role groups, mirroring backend/app/core/security.py.
-export const REVIEW_ROLES: Role[] = ["analyst", "controller", "admin"];
-export const RUN_ROLES: Role[] = ["analyst", "admin"];
-export const ADMIN_ROLES: Role[] = ["admin"];
-/** Tick & Tie's financial QA screens (documents, exceptions, reviews). */
-export const QA_ROLES: Role[] = ["analyst", "controller", "auditor", "admin"];
-/** Capital planning (Capital Drift): board members read, property managers decide. */
-export const CAPITAL_READ_ROLES: Role[] = ["board_member", "property_manager", "auditor", "admin"];
+export const CAPITAL_READ_ROLES: Role[] = ["board_member", "property_manager", "admin"];
 export const CAPITAL_DECIDE_ROLES: Role[] = ["property_manager", "admin"];
+export const ADMIN_ROLES: Role[] = ["admin"];
 
 export const ROLE_NAMES: Record<Role, string> = {
-  analyst: "Analyst",
-  controller: "Finance controller",
-  auditor: "Auditor",
-  admin: "Admin",
   board_member: "Board member",
   property_manager: "Property manager",
+  admin: "Admin",
 };

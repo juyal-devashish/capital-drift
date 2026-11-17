@@ -1,9 +1,9 @@
-// Per-browser preferences: colour theme, saved queue views and the collapsed sidebar. They live in
+// Per-browser preferences: colour theme and the collapsed sidebar. They live in
 // localStorage (wrapped in try/catch: storage can be unavailable) and broadcast a window event so
 // every component showing them stays in sync without a global store.
 import { useCallback, useEffect, useState } from "react";
 
-const EVENT = "finqa:prefs";
+const EVENT = "capital-drift:prefs";
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -48,45 +48,26 @@ export function applyTheme(theme: Theme) {
 
 /** Apply the stored theme before React renders, so the page never flashes the wrong colours. */
 export function initTheme() {
-  applyTheme(read<Theme>("finqa.theme", "system"));
+  applyTheme(read<Theme>("capital-drift.theme", "system"));
 }
 
 export function useTheme(): [Theme, (t: Theme) => void] {
-  const [theme, setTheme] = usePref<Theme>("finqa.theme", "system");
+  const [theme, setTheme] = usePref<Theme>("capital-drift.theme", "system");
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
   return [theme, setTheme];
 }
 
-// ------------------------------------------------------------------------------- saved views
-export interface SavedView {
-  id: string;
-  name: string;
-  query: string; // queue URL search string, without "?"
-}
-
-export function useSavedViews() {
-  const [views, setViews] = usePref<SavedView[]>("finqa.views", []);
-  const add = useCallback(
-    (name: string, query: string) => setViews([...views, { id: `${Date.now()}`, name, query }]),
-    [views, setViews],
-  );
-  const remove = useCallback((id: string) => setViews(views.filter((v) => v.id !== id)), [views, setViews]);
-  return { views, add, remove };
-}
-
 // --------------------------------------------------------------------------------- sidebar
 export function useSidebarCollapsed() {
-  return usePref<boolean>("finqa.sidebarCollapsed", false);
+  return usePref<boolean>("capital-drift.sidebarCollapsed", false);
 }
 
 // ------------------------------------------------------------------------------ page title
 /** Set the browser tab title for the current page. */
 export function usePageTitle(title: string | null | undefined) {
   useEffect(() => {
-    // Capital planning pages carry the Capital Drift name; the inherited QA pages keep Tick & Tie's.
-    const brand = window.location.pathname.startsWith("/capital") ? "Capital Drift" : "Tick & Tie";
-    document.title = title ? `${title} · ${brand}` : brand;
+    document.title = title ? `${title} · Capital Drift` : "Capital Drift Monitor";
   }, [title]);
 }

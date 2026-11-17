@@ -4,14 +4,14 @@
 // Everyone with access sees the full history.
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api } from "../../api";
-import { CAPITAL_DECIDE_ROLES, ROLE_NAMES, useAuth } from "../../auth";
-import { ErrorNote, Loading } from "../../components/Marks";
-import { useToast } from "../../components/Toast";
-import { WARNING_NAMES, dateTime, usd } from "../../format";
-import { useAsync } from "../../hooks";
-import { usePageTitle } from "../../prefs";
-import type { ComponentInfo, QueueChanges, RelatedInvoice, Role } from "../../types";
+import { api } from "../api";
+import { CAPITAL_DECIDE_ROLES, ROLE_NAMES, useAuth } from "../auth";
+import { ErrorNote, Loading } from "../components/Marks";
+import { useToast } from "../components/Toast";
+import { WARNING_NAMES, dateTime, usd } from "../format";
+import { useAsync } from "../hooks";
+import { usePageTitle } from "../prefs";
+import type { ComponentInfo, QueueChanges, RelatedInvoice, Role } from "../types";
 import { SyntheticNote } from "./Board";
 import { ItemStatus, ItemTag } from "./Queue";
 
@@ -82,7 +82,7 @@ function keyText(id: string): string {
 }
 
 function Changes({ changes }: { changes: QueueChanges }) {
-  const link = (id: string) => <Link to={`/capital/queue/${encodeURIComponent(id)}`}>{keyText(id)}</Link>;
+  const link = (id: string) => <Link to={`/queue/${encodeURIComponent(id)}`}>{keyText(id)}</Link>;
   const none = !changes.opened.length && !changes.reopened.length && !changes.resolved_by_rerun.length;
   return (
     <section className="panel" aria-live="polite">
@@ -200,7 +200,7 @@ export function CapitalItem() {
       <header className="page-head with-actions">
         <div>
           <p className="eyebrow">
-            <Link to="/capital/queue">Review queue</Link> · <Link to={`/capital/associations/${encodeURIComponent(it.association_id)}`}>{it.association_id}</Link>
+            <Link to="/queue">Review queue</Link> · <Link to={`/associations/${encodeURIComponent(it.association_id)}`}>{it.association_id}</Link>
           </p>
           <h1>{it.title}</h1>
           <div className="assign-row">

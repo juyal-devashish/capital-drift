@@ -1,72 +1,25 @@
-// App shell: a dark sidebar (grouped navigation with live counts, quick and saved queue views,
-// admin tools), a top bar (global search, live review status, help, user menu with theme) and the
-// page area wrapped in an error boundary. On narrow screens the sidebar becomes a drawer opened by
-// the hamburger; on wide screens it can collapse to icons. The summary is polled so counts stay
-// current everywhere.
-import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+// App shell: a dark sidebar (board, review queue, results, help), a top bar with the user menu and
+// theme, and the page area wrapped in an error boundary. On narrow screens the sidebar becomes a
+// drawer opened by the hamburger; on wide screens it can collapse to icons.
+import { Component, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { api } from "../api";
-import { ADMIN_ROLES, CAPITAL_READ_ROLES, QA_ROLES, ROLE_NAMES, useAuth } from "../auth";
-import { useAsync, useHotkeys, usePolling } from "../hooks";
-import { useSavedViews, useSidebarCollapsed, useTheme, type Theme } from "../prefs";
-import { CommandPalette } from "./CommandPalette";
+import { ROLE_NAMES, useAuth } from "../auth";
+import { useSidebarCollapsed, useTheme, type Theme } from "../prefs";
 import { Icon, type IconName } from "./Icons";
-import { Kbd, Modal } from "./Marks";
 
-function NavItem({
-  to,
-  icon,
-  label,
-  badge,
-  tone,
-  end,
-  live,
-  active,
-}: {
-  to: string;
-  icon: IconName;
-  label: string;
-  badge?: number;
-  tone?: "red" | "blue" | "plain";
-  end?: boolean;
-  live?: boolean;
-  /** Overrides route matching (needed where links differ only by query string). */
-  active?: boolean;
-}) {
-  const location = useLocation();
-  // Query-string links (quick and saved views) are active only when the query matches too.
-  const [path, search = ""] = to.split("?");
-  const exact = active ?? (to.includes("?") ? location.pathname === path && location.search === `?${search}` : undefined);
+function NavItem({ to, icon, label, end, active }: { to: string; icon: IconName; label: string; end?: boolean; active?: boolean }) {
   return (
     <NavLink
       to={to}
       end={end}
-      className={({ isActive }) => ((exact ?? isActive) ? "nav-item active" : "nav-item")}
+      className={({ isActive }) => ((active ?? isActive) ? "nav-item active" : "nav-item")}
       title={label}
-      aria-current={exact ? "page" : undefined}
     >
       <Icon name={icon} />
       <span className="nav-label">{label}</span>
-      {live && <span className="pulse nav-pulse" aria-hidden="true" />}
-      {!!badge && <span className={`nav-badge nav-badge-${tone ?? "red"}`}>{badge > 999 ? "999+" : badge.toLocaleString()}</span>}
     </NavLink>
   );
 }
-
-const SHORTCUTS: [string, string][] = [
-  ["Ctrl K", "Search everything / run a command"],
-  ["g then o", "Go to overview"],
-  ["g then q", "Go to exception queue"],
-  ["g then s", "Go to document sets"],
-  ["g then r", "Go to reports"],
-  ["/", "Search the current list"],
-  ["j / k", "Next / previous item"],
-  ["Enter", "Open the highlighted item"],
-  ["x", "Select the highlighted row in the queue"],
-  ["1 / 2 / 3", "Choose a decision on an exception"],
-  ["u", "Back to the queue from an exception"],
-  ["?", "Show this list"],
-];
 
 const THEMES: { key: Theme; label: string; icon: IconName }[] = [
   { key: "light", label: "Light", icon: "sun" },
@@ -75,7 +28,7 @@ const THEMES: { key: Theme; label: string; icon: IconName }[] = [
 ];
 
 /** Small dropdown menu that closes on outside click or Escape. */
-function UserMenu({ onShortcuts }: { onShortcuts: () => void }) {
+function UserMenu() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -125,14 +78,10 @@ function UserMenu({ onShortcuts }: { onShortcuts: () => void }) {
           <button role="menuitem" className="menu-item" onClick={() => (setOpen(false), navigate("/help"))}>
             <Icon name="help" size={16} /> Help & guide
           </button>
-          <button role="menuitem" className="menu-item" onClick={() => (setOpen(false), onShortcuts())}>
-            <Icon name="keyboard" size={16} /> Keyboard shortcuts <Kbd>?</Kbd>
-          </button>
           <button
             role="menuitem"
             className="menu-item danger"
             onClick={() => {
-              // An explicit sign-out starts the next person on the overview, not on this page.
               navigate("/login", { replace: true });
               signOut();
             }}
@@ -174,66 +123,10 @@ class PageBoundary extends Component<{ children: ReactNode; resetKey: string }, 
 }
 
 export function Layout() {
-  const { can } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
-  const [help, setHelp] = useState(false);
-  const [palette, setPalette] = useState(false);
   const [drawer, setDrawer] = useState(false);
   const [collapsed, setCollapsed] = useSidebarCollapsed();
-  const [pendingG, setPendingG] = useState(false);
-  const { views, remove } = useSavedViews();
-
-  const qa = can(...QA_ROLES); // Tick & Tie's financial QA screens
-  const capital = can(...CAPITAL_READ_ROLES); // Capital Drift's capital planning screens
-  // Board members and property managers can't read the QA summary; don't ask for it.
-  const summary = useAsync(() => (qa ? api.summary() : Promise.resolve(null)), [qa]);
-  const s = summary.data;
-  const running = (s?.runs_by_status.running ?? 0) + (s?.runs_by_status.queued ?? 0);
-  usePolling(
-    useCallback(() => summary.reload(), [summary.reload]), // eslint-disable-line react-hooks/exhaustive-deps
-    true,
-    running > 0 ? 3000 : 20000,
-  );
-  useEffect(() => {
-    summary.reload(); // decisions made on one page change counts shown everywhere
-    setDrawer(false);
-  }, [location.pathname, location.search]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Ctrl/⌘+K works even while typing in a field.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setPalette((p) => !p);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  useHotkeys(
-    {
-      "?": () => setHelp(true),
-      g: () => {
-        setPendingG(true);
-        window.setTimeout(() => setPendingG(false), 1200);
-      },
-      o: () => pendingG && navigate("/"),
-      q: () => pendingG && navigate("/queue"),
-      s: () => pendingG && navigate("/sets"),
-      r: () => pendingG && navigate("/reports"),
-    },
-    !palette,
-  );
-
-  const open = s?.exceptions_by_status.open ?? 0;
-  const here = location.pathname + location.search;
-  const quickViews: { to: string; label: string; icon: IconName; count?: number }[] = [
-    { to: "/queue?severity=high", label: "High severity", icon: "alert", count: s?.open_by_severity.high },
-    { to: "/queue?type=missing_item", label: "Missing figures", icon: "file", count: s?.open_by_type.missing_item },
-    { to: "/queue?type=baseline_anomaly", label: "Unusual changes", icon: "activity", count: s?.open_by_type.baseline_anomaly },
-  ];
+  useEffect(() => setDrawer(false), [location.pathname, location.search]);
 
   return (
     <div className={`shell${collapsed ? " is-collapsed" : ""}${drawer ? " drawer-open" : ""}`}>
@@ -246,10 +139,7 @@ export function Layout() {
             <span className="brand-mark" aria-hidden="true">
               <Icon name="check" size={16} />
             </span>
-            <span className="brand-name">
-              {capital ? "Capital Drift" : "Tick & Tie"}
-              {capital && <small className="brand-credit">built on Tick &amp; Tie</small>}
-            </span>
+            <span className="brand-name">Capital Drift</span>
           </Link>
           <button className="icon-button sidebar-close" aria-label="Close menu" onClick={() => setDrawer(false)}>
             <Icon name="x" />
@@ -257,67 +147,11 @@ export function Layout() {
         </div>
 
         <nav className="sidebar-scroll">
-          {capital && (
-            <div className="nav-group">
-              {qa && <span className="nav-heading">Capital planning</span>}
-              <NavItem to="/capital" end icon="building" label="Board view" />
-              <NavItem to="/capital/queue" icon="inbox" label="Review queue" active={location.pathname.startsWith("/capital/queue")} />
-              <NavItem to="/capital/results" icon="chart" label="Results" />
-            </div>
-          )}
-          {qa && (
-          <>
-          {capital && <span className="nav-heading nav-heading-gap">Financial QA</span>}
           <div className="nav-group">
-            <NavItem to="/" end icon="home" label="Overview" />
-            <NavItem
-              to="/queue"
-              icon="inbox"
-              label="Exception queue"
-              badge={open}
-              active={
-                location.pathname.startsWith("/exceptions") ||
-                (location.pathname === "/queue" && ![...quickViews.map((v) => v.to), ...views.map((v) => `/queue?${v.query}`)].includes(here))
-              }
-            />
-            <NavItem to="/sets" icon="folder" label="Document sets" />
-            <NavItem to="/companies" icon="building" label="Companies" />
-            <NavItem to="/runs" icon="activity" label="Reviews" badge={running} tone="blue" live={running > 0} />
+            <NavItem to="/" end icon="building" label="Board view" active={location.pathname === "/" || location.pathname.startsWith("/associations")} />
+            <NavItem to="/queue" icon="inbox" label="Review queue" />
+            <NavItem to="/results" icon="chart" label="Results" />
           </div>
-
-          <div className="nav-group">
-            <span className="nav-heading">Insights</span>
-            <NavItem to="/reports" icon="chart" label="Reports" />
-            <NavItem to="/audit" icon="shield" label="Audit log" />
-          </div>
-
-          <div className="nav-group">
-            <span className="nav-heading">Quick views</span>
-            {quickViews.map((v) => (
-              <NavItem key={v.to} to={v.to} icon={v.icon} label={v.label} badge={v.count} tone="plain" />
-            ))}
-            {views.map((v) => (
-              <div key={v.id} className="saved-view">
-                <NavItem to={`/queue${v.query ? `?${v.query}` : ""}`} icon="bookmark" label={v.name} />
-                <button className="saved-view-remove" aria-label={`Remove saved view ${v.name}`} title="Remove this view" onClick={() => remove(v.id)}>
-                  <Icon name="x" size={14} />
-                </button>
-              </div>
-            ))}
-            {views.length === 0 && !collapsed && <p className="nav-tip">Save any filtered queue with “Save view” to pin it here.</p>}
-          </div>
-          </>
-          )}
-
-          {can(...ADMIN_ROLES) && (
-            <div className="nav-group">
-              <span className="nav-heading">Administration</span>
-              <NavItem to="/upload" icon="upload" label="Upload documents" />
-              <NavItem to="/rules" icon="sliders" label="Review rules" />
-              <NavItem to="/admin/users" icon="users" label="Users & access" />
-              <NavItem to="/admin/system" icon="server" label="System status" />
-            </div>
-          )}
         </nav>
 
         <div className="sidebar-foot">
@@ -335,29 +169,12 @@ export function Layout() {
           <button className="icon-button hamburger" aria-label="Open menu" aria-expanded={drawer} onClick={() => setDrawer(true)}>
             <Icon name="menu" />
           </button>
-          {qa ? (
-            <button className="search-trigger" onClick={() => setPalette(true)}>
-              <Icon name="search" size={16} />
-              <span>Search sets, companies, exceptions…</span>
-              <kbd className="kbd">Ctrl K</kbd>
-            </button>
-          ) : (
-            <span className="topbar-title">Capital Drift Monitor</span>
-          )}
+          <span className="topbar-title">Capital Drift Monitor</span>
           <div className="topbar-right">
-            {running > 0 && (
-              <Link to="/runs?status=running,queued" className="live-pill">
-                <span className="pulse" aria-hidden="true" />
-                {running === 1 ? "1 review running" : `${running} reviews running`}
-              </Link>
-            )}
-            <button className="icon-button" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts" onClick={() => setHelp(true)}>
-              <Icon name="keyboard" />
-            </button>
             <Link to="/help" className="icon-button" title="Help & guide" aria-label="Help & guide">
               <Icon name="help" />
             </Link>
-            <UserMenu onShortcuts={() => setHelp(true)} />
+            <UserMenu />
           </div>
         </header>
         <main className="page" id="main">
@@ -366,31 +183,6 @@ export function Layout() {
           </PageBoundary>
         </main>
       </div>
-
-      {qa && <CommandPalette open={palette} onClose={() => setPalette(false)} onShortcuts={() => setHelp(true)} />}
-      <Modal open={help} title="Keyboard shortcuts" onClose={() => setHelp(false)}>
-        <table className="shortcut-table">
-          <tbody>
-            {SHORTCUTS.map(([k, what]) => (
-              <tr key={k}>
-                <td>
-                  {k.split(" ").map((part, i, parts) =>
-                    // "then" and the "/" between alternatives are words; everything else is a key.
-                    part === "then" || (part === "/" && parts.length > 1) ? (
-                      <span key={i} className="quiet">
-                        {` ${part} `}
-                      </span>
-                    ) : (
-                      <Kbd key={i}>{part}</Kbd>
-                    ),
-                  )}
-                </td>
-                <td>{what}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Modal>
     </div>
   );
 }

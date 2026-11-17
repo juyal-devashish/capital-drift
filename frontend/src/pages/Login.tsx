@@ -9,11 +9,8 @@ import { usePageTitle } from "../prefs";
 
 const DEMO_USERS = [
   { token: "board-token", key: "board_member", name: "Bea", role: "Board member", does: "Sees which associations are red and why; changes nothing" },
-  { token: "manager-token", key: "property_manager", name: "Max", role: "Property manager", does: "Works the capital review queue and decides" },
-  { token: "analyst-token", key: "analyst", name: "Alice", role: "Analyst", does: "Runs reviews and decides exceptions" },
-  { token: "controller-token", key: "controller", name: "Carol", role: "Finance controller", does: "Oversees the queue and decides" },
-  { token: "auditor-token", key: "auditor", name: "Arun", role: "Auditor", does: "Reads everything, changes nothing" },
-  { token: "admin-token", key: "admin", name: "Adam", role: "Admin", does: "Uploads documents and sets rules" },
+  { token: "manager-token", key: "property_manager", name: "Max", role: "Property manager", does: "Works the review queue and decides" },
+  { token: "admin-token", key: "admin", name: "Adam", role: "Admin", does: "Everything a manager can do, plus rebuilding the queue" },
 ];
 
 export function Login() {
@@ -73,8 +70,7 @@ export function Login() {
           </li>
         </ol>
         <p className="login-tagline" style={{ fontSize: "0.8125rem", marginTop: "1.5rem" }}>
-          All data here is synthetic. Built on Tick &amp; Tie by Shreyash Methi, whose financial QA screens are still here for the analyst,
-          controller and auditor roles.
+          All data here is synthetic: made-up associations, reserve studies and invoices.
         </p>
       </section>
 

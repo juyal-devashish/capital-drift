@@ -2,12 +2,12 @@
 // the replacement and repair spend found in its invoices), the warnings on the timeline, and every part.
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api } from "../../api";
-import { ErrorNote, Loading } from "../../components/Marks";
-import { KIND_NAMES, plural, usd, usdShort } from "../../format";
-import { useAsync } from "../../hooks";
-import { usePageTitle } from "../../prefs";
-import type { AssociationTimeline, ForecastData, ReviewItem } from "../../types";
+import { api } from "../api";
+import { ErrorNote, Loading } from "../components/Marks";
+import { KIND_NAMES, plural, usd, usdShort } from "../format";
+import { useAsync } from "../hooks";
+import { usePageTitle } from "../prefs";
+import type { AssociationTimeline, ForecastData, ReviewItem } from "../types";
 import { ForecastChart } from "./ForecastChart";
 import { SyntheticNote } from "./Board";
 import { ItemStatus, ItemTag } from "./Queue";
@@ -46,7 +46,7 @@ function Timeline({ a }: { a: AssociationTimeline }) {
               {(flagsByYear.get(y.year) ?? []).map((w) => (
                 <Link
                   key={w.id}
-                  to={`/capital/queue/${encodeURIComponent(w.id)}`}
+                  to={`/queue/${encodeURIComponent(w.id)}`}
                   title={w.title}
                   className={`tl-flag${w.warning_kind === "over_budget" ? " is-amber" : ""}${COUNTED.includes(w.status) ? "" : " is-off"}`}
                   aria-label={w.title}
@@ -121,7 +121,7 @@ function ForecastPanel({ a }: { a: AssociationTimeline }) {
         </span>
       </div>
       <p className="quiet" style={{ fontSize: "var(--t-sm)", marginBottom: 0 }}>
-        {a.forecast_assumptions} <Link to="/capital/results">How well this did in a backtest</Link>.
+        {a.forecast_assumptions} <Link to="/results">How well this did in a backtest</Link>.
       </p>
     </section>
   );
@@ -145,7 +145,7 @@ export function CapitalAssociation() {
       <header className="page-head with-actions">
         <div>
           <p className="eyebrow">
-            <Link to="/capital">Board view</Link> · {a.id}
+            <Link to="/">Board view</Link> · {a.id}
           </p>
           <h1>
             <i className={`light light-${s.status}`} aria-hidden="true" /> {a.name}
@@ -190,7 +190,7 @@ export function CapitalAssociation() {
             <span className="kpi-label">Not yet placed</span>
             <span className="kpi-value">{usdShort(totals.unplaced)}</span>
             <span className="kpi-hint">
-              <Link to={`/capital/queue?kind=invoice&association_id=${encodeURIComponent(a.id)}`}>See the invoices</Link>
+              <Link to={`/queue?kind=invoice&association_id=${encodeURIComponent(a.id)}`}>See the invoices</Link>
             </span>
           </div>
         </div>
@@ -208,7 +208,7 @@ export function CapitalAssociation() {
                   {a.warnings.map((w) => (
                     <tr key={w.id}>
                       <td className="title-cell">
-                        <Link className="row-link" to={`/capital/queue/${encodeURIComponent(w.id)}`}>
+                        <Link className="row-link" to={`/queue/${encodeURIComponent(w.id)}`}>
                           {w.title}
                           <small>
                             <ItemTag item={w} />

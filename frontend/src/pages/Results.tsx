@@ -1,10 +1,10 @@
 // Results: how well matching, warnings and review do on synthetic portfolios. The numbers come from one
 // file written offline from the answer key (`python -m app.cli results`); the app never scores live.
-import { api } from "../../api";
-import { EmptyState, Loading } from "../../components/Marks";
-import { pct } from "../../format";
-import { useAsync } from "../../hooks";
-import { usePageTitle } from "../../prefs";
+import { api } from "../api";
+import { EmptyState, Loading } from "../components/Marks";
+import { pct } from "../format";
+import { useAsync } from "../hooks";
+import { usePageTitle } from "../prefs";
 import { SyntheticNote } from "./Board";
 
 const KIND_WORDS: Record<string, string> = { failing_early: "failing early", overdue: "past due", over_budget: "over budget" };
