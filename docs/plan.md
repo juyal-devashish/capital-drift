@@ -37,7 +37,7 @@ Three changes come from FiXA's own site (fixai.tech, read on 2026-11-16). Its HO
 
 - Make one commit per step, and run `make test` and `make lint` before each.
 - Use only made-up data, labelled as made up wherever it appears.
-- Nothing goes public until you say so.
+- The repo is public, so commit nothing private. Nothing deploys until you say so.
 - Keep the credit to Shreyash at the top of the README.
 
 ## Settled
