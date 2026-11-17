@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Invoice, LLMAttemptRecord, ReserveComponent
 from app.domain.matching import match_invoices
 from app.domain.warnings import WatchSettings, watch_window
+from app.evals.forecast import backtest_seed
 from app.evals.matching import score_matches
 from app.evals.review import evaluate_review_db, evaluate_review_seed
 from app.evals.warnings import component_years, evaluate_seed, score_warnings
@@ -22,12 +23,15 @@ from app.services.llm_matching import combined_matches, stored_matches
 from app.services.warnings import stored_warnings
 
 HELD_OUT = (11, 12, 13)
+FRESH = (14, 15, 16, 17)  # first used for the forecast backtest, after the forecast was written
 CAVEATS = [
     "All data is synthetic. The same person wrote the generator, the rules and the detector, "
     "so treat every number as optimistic.",
     "Seed 7 was used to tune the rules. Seeds 11-13 were held out, but seed 11's warning false alarms "
     "were inspected before the review rule was written, so 12 and 13 are the clean held-out seeds for review.",
     "Claude was run on seed 7 only; seeds 11-13 use rules-only matches.",
+    "The forecast backtest uses only data up to 2020 and compares 2021-2025. Its 10-90% band covers only the "
+    "spread in replacement cost, so it holds the actual balance far less often than 80% of the time.",
     "The review numbers come from a simulated reviewer answering from the answer key: "
     "an upper bound, not a measurement of people.",
     "About 12 planted problems per seed, so each detection rate rests on very few cases.",
@@ -113,6 +117,26 @@ def build(db: Session, answer_key: dict) -> dict:
                 }
             )
 
+    forecast_rows = []
+    for mode in ("flat", "rising"):
+        for group, seeds in (("development", (seed, *HELD_OUT)), ("fresh", FRESH)):
+            runs = [backtest_seed(s, "rules", contributions=mode) for s in seeds]
+            forecast_rows.append(
+                {
+                    "contributions": mode,
+                    "seeds": list(seeds),
+                    "group": group,
+                    "ran_short": sum(r["ran_short"] for r in runs),
+                    "already_below_zero": sum(r["already_below_zero"] for r in runs),
+                    "called_and_ran_short": sum(r["called_and_ran_short"] for r in runs),
+                    "false_calls": sum(len(r["false_calls"]) for r in runs),
+                    "plain_called_and_ran_short": sum(r["plain_schedule_called_and_ran_short"] for r in runs),
+                    "plain_false_calls": sum(r["plain_schedule_false_calls"] for r in runs),
+                    "band_coverage": [r["band_coverage"] for r in runs],
+                    "final_year_coverage": [r["final_year_coverage"] for r in runs],
+                }
+            )
+
     review = [evaluate_review_db(db, answer_key, "combined") | {"labels": "rules + Claude"}]
     review += [evaluate_review_seed(s) for s in HELD_OUT]
 
@@ -142,4 +166,5 @@ def build(db: Session, answer_key: dict) -> dict:
         "warnings": warnings,
         "threshold_tradeoff": tradeoff,
         "review": review,
+        "forecast_backtest": forecast_rows,
     }

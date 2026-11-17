@@ -6,9 +6,10 @@ Rules, fixed before the first run:
 
 * **Inputs** use only invoices dated on or before 31 December of ``as_of``: their matches, the
   completed projects and cost ratios, and the failing-early warnings a replay to that day raises.
-* **Actual balance** each year = the study's starting balance + the recommended contribution each
-  year - the *true* replacement spend (the answer key's labels). Same flat-contribution, no-interest
-  assumptions as the forecast, so the test checks the spend forecast, not those assumptions.
+* **Actual balance** each year = the study's starting balance + the contribution each year (same
+  mode as the forecast: flat or rising) - the *true* replacement spend (the answer key's labels). The
+  same contribution and no-interest assumptions sit on both sides, so the test checks the spend
+  forecast, not those assumptions, and cannot tell the two contribution modes apart.
 * **Band coverage**: the share of association-years whose actual balance falls inside the 10th-90th
   percentile band (to within a dollar). A well-calibrated band covers about 80%. Years where the band
   has no width (nothing falls due, so every run agrees) are counted apart: a hit there says nothing
@@ -28,14 +29,25 @@ from dataclasses import asdict
 from datetime import date
 from statistics import median
 
-from app.domain.forecast import ForecastSettings, completed_projects, cost_ratios, forecast_association
+from app.domain.forecast import (
+    ForecastSettings,
+    completed_projects,
+    contribution,
+    cost_ratios,
+    forecast_association,
+)
 from app.domain.matching import match_invoices
 from app.domain.warnings import Spend, spend_from_matches, watch_spend
 from app.evals.warnings import truth_matches
 
 
 def backtest_seed(
-    seed: int, labels: str = "rules", as_of: int = 2020, years: int = 5, n_associations: int = 20
+    seed: int,
+    labels: str = "rules",
+    as_of: int = 2020,
+    years: int = 5,
+    n_associations: int = 20,
+    contributions: str = "flat",
 ) -> dict:
     from app.synth.generator import generate
 
@@ -59,7 +71,7 @@ def backtest_seed(
         for w in watch_spend(ds.components, ds.associations, spend, date(first, 1, 1), cutoff)
         if w.kind == "failing_early"
     }
-    settings = ForecastSettings(years=years)
+    settings = ForecastSettings(years=years, contributions=contributions)
 
     true_spend = [
         Spend(i.id, truths[i.id]["component_id"], i.invoice_date, i.amount, "replacement")
@@ -68,7 +80,7 @@ def backtest_seed(
     ]
     inside = total = flat = flat_inside = final_inside = 0
     errors, called, ran_short, plain_called, already = [], set(), set(), set(), set()
-    plain = ForecastSettings(years=years, adjust=False)
+    plain = ForecastSettings(years=years, adjust=False, contributions=contributions)
     rows = []
     for a in ds.associations:
         f = forecast_association(a, ds.components, spend, done, ratios, failing, first, as_of, settings)
@@ -76,7 +88,7 @@ def backtest_seed(
         bal = a.reserve_balance_start
         actual = {}
         for y in range(first, as_of + years + 1):
-            bal += a.annual_contribution - sum(
+            bal += contribution(a, y, contributions) - sum(
                 x.amount for x in true_spend if x.component_id in comps and x.on.year == y
             )
             actual[y] = bal
@@ -105,6 +117,7 @@ def backtest_seed(
     return {
         "seed": seed,
         "labels": labels,
+        "contributions": contributions,
         "as_of": as_of,
         "years": years,
         "band_coverage": round(inside / total, 3) if total else None,

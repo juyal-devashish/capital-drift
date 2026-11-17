@@ -351,6 +351,37 @@ class BoardOut(BaseModel):
     associations: list[BoardAssociation]
 
 
+class ForecastOut(BaseModel):
+    association_id: str
+    as_of: int
+    start_balance: float
+    history: list[dict]
+    years: list[dict]
+    share_short: float
+    first_short_year: int | None
+    due: dict[str, int]
+
+
+class ForecastRow(BaseModel):
+    association_id: str
+    name: str
+    status: str
+    start_balance: float
+    annual_contribution: float
+    share_short: float
+    first_short_year: int | None
+    lowest_p50_in_contributions: float  # deepest median balance, in years of contributions
+    start_balance_rising: float
+    share_short_rising: float
+    first_short_year_rising: int | None
+
+
+class ForecastBoard(BaseModel):
+    as_of: int | None
+    assumptions: str
+    associations: list[ForecastRow]
+
+
 class AssociationTimeline(BaseModel):
     id: str
     name: str
@@ -366,3 +397,6 @@ class AssociationTimeline(BaseModel):
     years: list[dict]
     parts: list[dict]
     warnings: list[ReviewItemOut]
+    forecast: ForecastOut | None  # flat contributions
+    forecast_rising: ForecastOut | None
+    forecast_assumptions: str

@@ -21,6 +21,9 @@ from app.schemas import (
     BoardAssociation,
     BoardOut,
     ComponentOut,
+    ForecastBoard,
+    ForecastOut,
+    ForecastRow,
     QueueChanges,
     RelatedInvoice,
     ReviewDecisionIn,
@@ -29,6 +32,7 @@ from app.schemas import (
     ReviewItemPage,
 )
 from app.services import review
+from app.services.forecast import ASSUMPTIONS, forecast_both
 from app.services.llm_matching import reviewed_matches
 
 router = APIRouter(prefix="/capital", tags=["capital"])
@@ -197,6 +201,7 @@ def association(
     all_years = [i.invoice_date.year for i in db.scalars(select(Invoice))]
     first, last = (min(all_years), max(all_years)) if all_years else (a.study_year, a.study_year)
     view = year_by_year(components, a, invoices, reviewed_matches(db), first, last)
+    both = forecast_both(db)
     warnings = db.scalars(
         select(ReviewItem)
         .where(ReviewItem.association_id == a.id, ReviewItem.kind == "warning")
@@ -217,7 +222,43 @@ def association(
         years=view["years"],
         parts=view["parts"],
         warnings=warnings,
+        **{
+            key: next((ForecastOut(**f.__dict__) for f in fs if f.association_id == a.id), None)
+            for key, fs in (("forecast", both["flat"]), ("forecast_rising", both["rising"]))
+        },
+        forecast_assumptions=ASSUMPTIONS,
     )
+
+
+@router.get("/forecast", response_model=ForecastBoard)
+def forecast(db: Session = Depends(get_db), _: User = Depends(require_roles(*CAPITAL_READ_ROLES))):
+    """Which associations run short of reserve money first: most likely first, then soonest."""
+    statuses = _statuses(db)
+    names = {a.id: a for a in db.scalars(select(Association))}
+    both = forecast_both(db)
+    forecasts, rising = both["flat"], {f.association_id: f for f in both["rising"]}
+    rows = []
+    for f in forecasts:
+        a, r = names[f.association_id], rising[f.association_id]
+        rows.append(
+            ForecastRow(
+                association_id=f.association_id,
+                name=a.name,
+                status=statuses[f.association_id].status,
+                start_balance=f.start_balance,
+                annual_contribution=a.annual_contribution,
+                share_short=f.share_short,
+                first_short_year=f.first_short_year,
+                lowest_p50_in_contributions=round(min(y["p50"] for y in f.years) / a.annual_contribution, 2),
+                start_balance_rising=r.start_balance,
+                share_short_rising=r.share_short,
+                first_short_year_rising=r.first_short_year,
+            )
+        )
+    # Most likely to run short, then soonest, then deepest relative to what the association puts in.
+    rows.sort(key=lambda r: (-r.share_short, r.first_short_year or 9999, r.lowest_p50_in_contributions))
+    as_of = forecasts[0].as_of if forecasts else None
+    return ForecastBoard(as_of=as_of, assumptions=ASSUMPTIONS, associations=rows)
 
 
 @router.get("/results")

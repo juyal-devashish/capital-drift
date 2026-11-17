@@ -109,6 +109,13 @@ def test_board_timeline_and_results_endpoints(boilers, tmp_path, monkeypatch):
         assert next(r for r in t["years"] if r["year"] == 2019)["replacements"] == 82_000.0
         assert c.get("/api/capital/associations/NOPE", headers=board_hdr).status_code == 404
         assert c.get("/api/capital/board", headers=analyst).status_code == 403
+        fc = c.get("/api/capital/forecast", headers=board_hdr).json()
+        assert fc["as_of"] == 2025 and [r["association_id"] for r in fc["associations"]] == ["G"]
+        assert "modelled shortfall" in fc["assumptions"]
+        assert t["forecast"]["as_of"] == 2025 and t["forecast_rising"]["history"][-1]["contributions"] == 20_000, (
+            "0% inflation: rising = flat"
+        )
+        assert c.get("/api/capital/forecast", headers=analyst).status_code == 403
         assert c.get("/api/capital/results", headers=board_hdr).status_code == 404
         results.write_text(json.dumps({"label": "SYNTHETIC"}))
         assert c.get("/api/capital/results", headers=board_hdr).json() == {"label": "SYNTHETIC"}

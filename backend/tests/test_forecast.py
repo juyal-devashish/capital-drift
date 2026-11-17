@@ -91,5 +91,5 @@ def test_backtest_regression_floor_on_held_out_seed_12():
     """Measured 2026-11-17 (docs/results.md). Never loosen it."""
     from app.evals.forecast import backtest_seed
 
-    r = backtest_seed(12, "rules")
+    r = backtest_seed(12, "rules", contributions="flat")
     assert r["called_and_ran_short"] >= 4 and len(r["false_calls"]) <= 1

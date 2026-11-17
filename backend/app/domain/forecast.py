@@ -19,8 +19,13 @@ replacement schedule with three adjustments learned from the history:
   completed projects (actual over plan). Ratios outside ``ratio_bounds`` are treated as matching
   errors and left out; with none left, the ratio is 1.
 
-Contributions stay flat at the study's figure. The output per year is the 10th, 50th and 90th
-percentile balance, the share of runs below zero, and the first year the median goes below zero.
+**Contributions** follow one of two modes, applied the same way to the history and the forecast:
+``flat`` (the study's recommended figure every year, the default) or ``rising`` (that figure grown
+at the study's own inflation rate from the study year). The study states one figure and an inflation
+rate for costs, not whether contributions rise, so both are shown and neither is fitted.
+
+The output per year is the 10th, 50th and 90th percentile balance, the share of runs below zero, and
+the first year the median goes below zero.
 """
 
 import random
@@ -51,6 +56,7 @@ class ForecastSettings:
     # False gives the plain study schedule: every planned replacement happens on time at plan cost
     # (no history, no warnings, ratio 1). Used as the baseline in the backtest.
     adjust: bool = True
+    contributions: str = "flat"  # flat | rising (at the study's inflation rate)
 
 
 @dataclass(frozen=True)
@@ -75,6 +81,15 @@ class Forecast:
     share_short: float = 0.0  # runs that go below zero in any forecast year
     first_short_year: int | None = None  # first year the median balance is below zero
     due: dict[str, int] = field(default_factory=dict)  # part -> first forecast year it is due
+
+
+def contribution(assoc: FundedAssociation, year: int, mode: str) -> float:
+    """The yearly contribution under ``mode``: flat, or rising at the study's inflation rate."""
+    if mode == "flat":
+        return assoc.annual_contribution
+    if mode == "rising":
+        return assoc.annual_contribution * (1 + assoc.inflation_rate) ** (year - assoc.study_year)
+    raise ValueError(f"unknown contribution mode {mode!r}")
 
 
 def completed_projects(
@@ -146,11 +161,12 @@ def forecast_association(
     out = Forecast(assoc.id, as_of, 0.0)
     balance = assoc.reserve_balance_start
     for y in range(first_year, as_of + 1):
-        balance += assoc.annual_contribution - reserve[y]
+        paid = contribution(assoc, y, s.contributions)
+        balance += paid - reserve[y]
         out.history.append(
             {
                 "year": y,
-                "contributions": assoc.annual_contribution,
+                "contributions": round(paid, 2),
                 "reserve_spend": round(reserve[y], 2),
                 "balance": round(balance, 2),
             }
@@ -180,7 +196,7 @@ def forecast_association(
                 y += c.useful_life_years
         bal, path = balance, []
         for y in horizon:
-            bal += assoc.annual_contribution - spend_by_year[y]
+            bal += contribution(assoc, y, s.contributions) - spend_by_year[y]
             path.append(bal)
         paths.append(path)
 
