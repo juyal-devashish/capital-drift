@@ -143,6 +143,27 @@ def cmd_eval_warnings(args) -> None:
     _emit([evaluate_seed(seed, args.labels) for seed in args.seeds], args.out)
 
 
+def cmd_eval_review(args) -> None:
+    """Simulate a property manager working the overdue warnings, using the answer key (upper bound)."""
+    from app.evals.review import evaluate_review_db, evaluate_review_seed
+
+    if args.answer_key:
+        key = json.loads(Path(args.answer_key).read_text(encoding="utf-8"))
+        with session_scope() as db:
+            _emit(evaluate_review_db(db, key, args.method), args.out)
+    else:
+        _emit([evaluate_review_seed(seed) for seed in args.seeds], args.out)
+
+
+def cmd_sync_queue(_args) -> None:
+    """Rerun warnings on the reviewed matches and reconcile the review queue."""
+    from app.services.review import queue_counts, sync_queue
+
+    with session_scope() as db:
+        changes = sync_queue(db)
+        print(json.dumps({k: len(v) for k, v in changes.items()} | {"queue": queue_counts(db)}, indent=2))
+
+
 def _emit(report, out: str | None) -> None:
     if out:
         Path(out).parent.mkdir(parents=True, exist_ok=True)
@@ -288,6 +309,12 @@ def main() -> None:
     ew.add_argument("--seeds", type=int, nargs="+", default=[11, 12, 13])
     ew.add_argument("--labels", default="rules", choices=["rules", "truth"])
     ew.add_argument("--out", help="also write the report to this JSON file")
+    er = sub.add_parser("eval-review", help="simulate reviewing overdue warnings with the answer key (upper bound)")
+    er.add_argument("--answer-key", help="score the loaded portfolio's stored matches against this key")
+    er.add_argument("--method", default="combined", choices=["rules", "combined"])
+    er.add_argument("--seeds", type=int, nargs="+", default=[12, 13], help="in memory, rules-only, if no key")
+    er.add_argument("--out", help="also write the report to this JSON file")
+    sub.add_parser("sync-queue", help="rerun warnings on reviewed matches and update the review queue")
     args = p.parse_args()
 
     upgrade()  # every command works against an up-to-date schema
@@ -314,6 +341,10 @@ def main() -> None:
         cmd_score_warnings(args)
     elif args.cmd == "eval-warnings":
         cmd_eval_warnings(args)
+    elif args.cmd == "eval-review":
+        cmd_eval_review(args)
+    elif args.cmd == "sync-queue":
+        cmd_sync_queue(args)
 
 
 if __name__ == "__main__":

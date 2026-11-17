@@ -265,3 +265,14 @@ def test_assignment_over_the_api_reports_what_the_rerun_changed(api):
     }
     parts = api.get("/api/capital/components", params={"association_id": "G"}, headers=BOARD).json()
     assert [p["id"] for p in parts] == ["G-BOIL-A", "G-BOIL-B"]
+
+
+# Regression floor: measured 2026-11-17 on held-out seed 12 (docs/results.md). Never loosen it.
+def test_simulated_review_of_overdue_candidates_clears_false_alarms_without_losing_detections():
+    from app.evals.review import evaluate_review_seed
+
+    r = evaluate_review_seed(12)
+    assert r["detections_lost"] == []
+    assert r["before"]["false_alarms"] == 10 and r["after"]["false_alarms"] <= 2
+    assert "overdue" not in r["after"]["false_alarms_by_kind"]
+    assert r["invoices_reviewed"] <= 13

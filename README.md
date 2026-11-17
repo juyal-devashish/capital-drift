@@ -69,4 +69,6 @@ cd backend && ../.venv/bin/python -m app.cli score-warnings --answer-key data/sy
 
 `warn` replays the matched spend month by month and stores warnings: a part failing early, a replacement past due, or a replacement over budget. `eval-warnings --seeds 11 12 13` scores whole portfolios in memory without touching the database. Results are in [docs/results.md](docs/results.md).
 
+Review queue: `sync-queue` reruns the warnings on reviewed matches and updates the queue. Property managers work it through `/api/capital/queue` (decisions) and `/api/capital/invoices/{id}/assignment` (which part an invoice was for). Board members can only read it. The demo tokens are `board-token`, `manager-token` and `admin-token`. `eval-review` measures how much review clears the false alarms (results in [docs/results.md](docs/results.md)).
+
 `make test` runs the backend tests and the frontend typecheck. `make dev-backend` and `make dev-frontend` start the API on :8000 and the UI on :5173. The `seed` and `eval-*` targets need Tick & Tie's test corpus (`../finqa-testdata`), which isn't included. They'll be replaced by the synthetic generator described in the plan.

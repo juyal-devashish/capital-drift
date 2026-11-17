@@ -160,3 +160,49 @@ cd backend && ../.venv/bin/python -m app.cli score-warnings --answer-key data/sy
 ```bash
 cd backend && ../.venv/bin/python -m app.cli eval-warnings --seeds 11 12 13 --labels rules
 ```
+
+## Review queue (day 6, 2026-11-17)
+
+Warnings and unsure invoices land in one review queue. Property managers (and admins) confirm or dismiss a warning, or say which part an invoice was for. Board members and auditors can only read. Every action goes to an append-only log with the user, the role and the match before and after. Changes made automatically by a rerun are logged under the user "system".
+
+An assignment reruns the warnings straight away. A warning that no longer applies is marked resolved-by-rerun, and the response says what changed. A warning a person has confirmed or dismissed is never changed by a rerun.
+
+On seed 7 the queue starts with 15 warnings and 175 unsure invoices. Next to each overdue warning it lists **candidate invoices**: invoices that might be the missing replacement. That rule was written before it was measured:
+
+- the invoice is from the same association;
+- it's dated from the year before the planned year up to the day the warning fired;
+- it's at least 15% of the part's cost;
+- and it's either unsure, or matched to a part with the same name elsewhere (a look-alike in another building).
+
+**How much review it takes.** A simulated property manager opens each overdue warning and assigns its candidates to their true parts from the answer key. Code applies the 15% rule, and the warnings rerun. This is an **upper bound**, because a real reviewer can be wrong or skip invoices.
+
+| Seed, labels | Invoices reviewed | False alarms before → after | Overdue false alarms after | Planted problems caught (before = after) | Detections lost |
+| --- | --- | --- | --- | --- | --- |
+| 7, rules + Claude | 8 | 4 → 1 | 0 | 11/12 | none |
+| 7, rules | 17 | 12 → 4 | 0 | 11/12 | none |
+| 11, rules | 46 | 21 → 2 | 0 | 8/12 | none |
+| 12, rules | 13 | 10 → 2 | 0 | 11/12 | none |
+| 13, rules | 35 | 12 → 3 | 0 | 10/12 | none |
+
+**What it shows:**
+
+- **Looking only at the candidates beside each overdue warning cleared every false overdue and over-budget warning**, on every seed. No planted problem stopped being caught. The cost was 8 invoices on seed 7 with Claude's matches, and 13–46 per seed with rules alone, out of roughly 400–510 unsure invoices.
+- The over-budget false alarms clear as a side effect. A boiler replaced in Bldg A but matched to Bldg B produces two warnings, and fixing the match removes both.
+- **What's left is failing-early false alarms (1–4 per seed).** Reviewing invoices can't clear them, because the detector raised them on correctly matched repairs. A property manager dismisses them, with a comment the log keeps.
+- **Clean held-out seeds are 12 and 13.** Seed 11's false alarms were inspected on day 5, before the candidate rule was written, so it isn't fully held out.
+
+The day 4–5 numbers still reproduce. A reviewer's answers go into a separate "reviewed" set of matches, used only by the queue and its warnings. "Combined" stays rules + Claude.
+
+**Reproduce** (no API calls):
+
+```bash
+cd backend && ../.venv/bin/python -m app.cli sync-queue
+```
+
+```bash
+cd backend && ../.venv/bin/python -m app.cli eval-review --answer-key data/synth/answer_key.json
+```
+
+```bash
+cd backend && ../.venv/bin/python -m app.cli eval-review --seeds 12 13
+```
