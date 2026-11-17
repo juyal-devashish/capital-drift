@@ -15,18 +15,31 @@ exceptions             structured exception records, one per (set, metric, perio
 review_decisions       append-only audit log of reviewer actions on exceptions
 app_settings           runtime-tunable rules (tolerances, thresholds) edited by admins
 
+Capital planning (Capital Drift Monitor)
+----------------------------------------
+portfolios             a property-management brand that runs several associations
+associations           one homeowner or condo association, with its reserve fund position
+reserve_components     one line of the association's reserve study: a building part with its
+                       useful life, replacement cost and planned replacement year
+invoices               vendor invoices as exported from the accounting system; the fund they were
+                       booked to is the association's own coding, which can be wrong
+
+The answer key for synthetic data (true component per invoice, planted problems) is never stored
+in these tables; see app/synth.
+
 Monetary values are stored as base units (whole currency units, or persons for headcount) in
 double precision. The largest realistic value (~1e14 for a unit error on a large company) still
 keeps sub-unit precision, and avoiding Decimal keeps the reconciliation maths simple.
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 
 from sqlalchemy import (
     JSON,
     Boolean,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -275,3 +288,66 @@ class LabelMapping(Base):
     metric: Mapped[str | None] = mapped_column(String(120))  # None = "not a tracked metric"
     source: Mapped[str] = mapped_column(String(20), default="llm")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+# --------------------------------------------------------------------------------- capital planning
+class Portfolio(Base):
+    __tablename__ = "portfolios"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)  # e.g. P01
+    name: Mapped[str] = mapped_column(String(200))
+
+    associations: Mapped[list["Association"]] = relationship(back_populates="portfolio", order_by="Association.id")
+
+
+class Association(Base):
+    __tablename__ = "associations"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)  # e.g. A07
+    portfolio_id: Mapped[str] = mapped_column(ForeignKey("portfolios.id"), index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    kind: Mapped[str] = mapped_column(String(20))  # condo_midrise | garden | sfh_hoa
+    town: Mapped[str] = mapped_column(String(80))
+    units: Mapped[int] = mapped_column(Integer)
+    buildings: Mapped[int] = mapped_column(Integer)
+    year_built: Mapped[int] = mapped_column(Integer)
+    # Reserve study the plan comes from, and the fund position on 1 January of that year.
+    study_year: Mapped[int] = mapped_column(Integer)
+    inflation_rate: Mapped[float] = mapped_column(Float)  # study's assumed annual cost inflation
+    reserve_balance_start: Mapped[float] = mapped_column(Float)
+    annual_contribution: Mapped[float] = mapped_column(Float)
+
+    portfolio: Mapped[Portfolio] = relationship(back_populates="associations")
+    components: Mapped[list["ReserveComponent"]] = relationship(
+        back_populates="association", order_by="ReserveComponent.id"
+    )
+
+
+class ReserveComponent(Base):
+    __tablename__ = "reserve_components"
+
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)  # e.g. A07-ROOF-B
+    association_id: Mapped[str] = mapped_column(ForeignKey("associations.id"), index=True)
+    category: Mapped[str] = mapped_column(String(40))  # roofing, elevators, paving, ...
+    name: Mapped[str] = mapped_column(String(200))
+    location: Mapped[str | None] = mapped_column(String(80))  # e.g. "Bldg B"; None = whole site
+    useful_life_years: Mapped[int] = mapped_column(Integer)
+    remaining_life_years: Mapped[int] = mapped_column(Integer)  # as of the study year
+    replacement_cost: Mapped[float] = mapped_column(Float)  # in study-year dollars
+    planned_year: Mapped[int] = mapped_column(Integer)
+
+    association: Mapped[Association] = relationship(back_populates="components")
+
+
+class Invoice(Base):
+    __tablename__ = "invoices"
+    __table_args__ = (Index("ix_invoices_association_date", "association_id", "invoice_date"),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)  # e.g. INV-000123
+    association_id: Mapped[str] = mapped_column(ForeignKey("associations.id"))
+    vendor_name: Mapped[str] = mapped_column(String(200))  # as written on the invoice
+    invoice_number: Mapped[str] = mapped_column(String(40))
+    invoice_date: Mapped[date] = mapped_column(Date)
+    amount: Mapped[float] = mapped_column(Float)
+    memo: Mapped[str] = mapped_column(Text)
+    fund_booked: Mapped[str] = mapped_column(String(12))  # operating | reserve, as the books say

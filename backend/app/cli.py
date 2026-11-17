@@ -5,6 +5,7 @@ Command-line entry points.
     python -m app.cli seed  --corpus ../../finqa-testdata
     python -m app.cli run   C004-FY2024
     python -m app.cli eval  --corpus ../../finqa-testdata --split dev --out runs/dev
+    python -m app.cli synth --seed 7 --out data/synth      # synthetic capital-planning portfolio
 
 ``eval`` runs the real agent graph over corpus sets (same code path as the API, without HTTP),
 then writes predictions.jsonl / timings.csv / sets.txt in the format the corpus' score.py reads,
@@ -45,6 +46,21 @@ def cmd_seed(args) -> None:
     with session_scope() as db:
         counts = seed_corpus(db, Path(args.corpus))
     print(json.dumps(counts))
+
+
+def cmd_synth(args) -> None:
+    """Generate a synthetic portfolio, write it to --out and (unless --no-load) load it."""
+    from app.synth.generator import generate
+    from app.synth.io import load_dataset, write_dataset
+
+    out = Path(args.out)
+    dataset, key = generate(seed=args.seed, n_associations=args.associations)
+    written = write_dataset(dataset, key, out)
+    result = {"out": str(out.resolve()), "written": written, "answer_key": key.summary()}
+    if not args.no_load:
+        with session_scope() as db:
+            result["loaded"] = load_dataset(db, out)
+    print(json.dumps(result, indent=2))
 
 
 def _run_set(set_id: str) -> tuple[str, str, float, str]:
@@ -161,6 +177,11 @@ def main() -> None:
     e.add_argument("--out", default="runs/latest")
     e.add_argument("--workers", type=int, default=2)
     e.add_argument("--limit", type=int)
+    y = sub.add_parser("synth", help="generate a synthetic capital-planning portfolio and load it")
+    y.add_argument("--seed", type=int, default=7)
+    y.add_argument("--associations", type=int, default=20)
+    y.add_argument("--out", default=str(settings.data_dir / "synth"))
+    y.add_argument("--no-load", action="store_true", help="write the files only")
     args = p.parse_args()
 
     upgrade()  # every command works against an up-to-date schema
@@ -173,6 +194,8 @@ def main() -> None:
         cmd_run(args)
     elif args.cmd == "eval":
         cmd_eval(args)
+    elif args.cmd == "synth":
+        cmd_synth(args)
 
 
 if __name__ == "__main__":
