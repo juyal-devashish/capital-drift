@@ -341,7 +341,12 @@ def _overdue(st: _State, on: date) -> SpendWarning:
         on,
         f"{_where(c)}: past its {st.due_year} replacement",
         message,
-        {"planned_year": st.due_year, "repairs_since_due": len(since), "repair_spend_since_due": round(amt, 2)},
+        {
+            "planned_year": st.due_year,
+            "plan_cost": round(inflated_cost(c, st.assoc, st.due_year), 2),
+            "repairs_since_due": len(since),
+            "repair_spend_since_due": round(amt, 2),
+        },
         [r.invoice_id for r in since],
     )
 

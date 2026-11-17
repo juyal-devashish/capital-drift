@@ -1,12 +1,13 @@
 # AGENTS.md: Capital Drift Monitor
 
-A demo for FiXA's founding full-stack engineer role: reserve-study and invoice reconciliation with drift detection, built on Tick & Tie's agent runtime. Read [README.md](README.md) and [docs/plan.md](docs/plan.md) first.
+Checks a homeowners association's spending against its reserve study: invoice matching, repair-or-replace warnings, a review queue and a reserve forecast, on synthetic data. Read [README.md](README.md), then [docs/design.md](docs/design.md) and [docs/results.md](docs/results.md).
 
 The working agreement in the Home Repo (`~/Desktop/claude-home/docs/working-agreement.md`) applies. This file adds:
 
-- **Attribution.** The first commit (`42ced57`) is Shreyash Methi's Tick & Tie code, used with his permission. Keep the credit line at the top of the README. Don't add a LICENSE until he chooses one for his code.
-- **Synthetic data only.** Never use FiXA's data or scrape their app. Label generated data as synthetic wherever it appears.
-- **Public repo.** It lives at `juyal-devashish/capital-drift` (public since 2026-11-16), so anything committed is visible. Push only when the user asks. Don't deploy until the user says so and the platform is agreed (AWS is the target, since the role asks for it).
-- **Checks.** `make test` (pytest and the frontend typecheck) and `make lint` before every commit. Use Python 3.12 in `.venv`; 3.15 can't install `zstandard`.
-- **No real model calls in tests.** The LLM path is stubbed in tests. Ask before any run that makes more than about 10 real API calls.
-- **Commits.** Commit after each completed step, on `main` until the first feature branch is needed.
+- **Synthetic data only.** Never use real association data or scrape anyone's app. Label generated data as synthetic wherever it appears, in the UI and in docs.
+- **The answer key stays offline.** The app never loads `answer_key.json`. Only `app/evals`, the tests and the `score-*`, `eval-*` and `results` commands read it.
+- **Public repo.** It lives at `juyal-devashish/capital-drift`, so anything committed is visible. Push only when the user asks. Don't deploy anywhere without the user's go-ahead.
+- **Checks.** `make test` (pytest and the frontend typecheck) and `make lint` before every commit. Use Python 3.12 in `.venv`.
+- **No real model calls in tests.** The Claude path is stubbed in tests. Ask before any run that makes more than about 10 real API calls; `demo` and `match-llm --cached-only` never call the API.
+- **Numbers don't move quietly.** Regression floors in the tests must not be lowered to make a change pass. Results in `docs/results.md` and `backend/results/capital_results.json` come from the commands they cite; regenerate them rather than editing by hand.
+- **Commits.** Commit after each completed step, with the checks green.

@@ -1,1 +1,1 @@
-"""FinQA backend: FastAPI API + LangGraph multi-agent reconciliation runtime."""
+"""Capital Drift Monitor backend: FastAPI API, CLI and offline evaluation."""

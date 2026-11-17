@@ -247,9 +247,6 @@ p { margin: 0 0 0.75rem; }
 .role-badge { font-size: 0.6875rem; font-weight: 650; padding: 0.1rem 0.5rem; border-radius: 999px; background: var(--slate-soft); color: var(--text-2); white-space: nowrap; }
 .menu-head .role-badge { margin-left: auto; }
 .role-admin { background: var(--primary-soft); color: var(--primary-text); }
-.role-analyst { background: var(--blue-soft); color: var(--blue-text); }
-.role-controller { background: var(--green-soft); color: var(--green-text); }
-.role-auditor { background: var(--amber-soft); color: var(--amber-text); }
 
 /* ----------------------------------------------------------------------------- page head */
 .page-head { margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 0.4rem; align-items: flex-start; }

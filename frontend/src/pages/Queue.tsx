@@ -1,5 +1,5 @@
 // Capital review queue: warnings first (the money at stake), then invoices nobody could place.
-// Board members and auditors read it; property managers and admins open an item to decide.
+// Board members read it; property managers and admins open an item to decide.
 import { Link, useSearchParams } from "react-router-dom";
 import { ALL_ITEM_STATUSES, api } from "../api";
 import { ADMIN_ROLES, CAPITAL_DECIDE_ROLES, useAuth } from "../auth";

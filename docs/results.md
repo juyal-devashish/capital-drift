@@ -2,9 +2,9 @@
 
 **All numbers here are on synthetic data.** The same person wrote the generator and the rules, so treat them as optimistic. They show the pipeline works end to end and where it struggles. They say nothing yet about real invoices.
 
-## Invoice matching: rules only (day 3, 2026-11-16)
+## 1. Invoice matching: rules only (2026-11-16)
 
-Each invoice is labelled routine upkeep, a repair to a reserve component, or part of a component's replacement, and given a component. If no single component clearly wins, it's labelled **unsure** and goes to the AI step on day 4.
+Each invoice is labelled routine upkeep, a repair to a reserve component, or part of a component's replacement, and given a component. If no single component clearly wins, it's labelled **unsure** and goes to the Claude step (section 2).
 
 The rules use only what a client hands over: vendor name, memo, amount, date, and the reserve study's component names and locations. They don't look at the fund an invoice was booked to; that's compared afterwards to flag spend booked to the wrong fund. Their vocabulary comes from component names plus a short generic list of maintenance terms, not from the generator's word lists.
 
@@ -52,9 +52,9 @@ cd backend && ../.venv/bin/python -m app.cli match
 cd backend && ../.venv/bin/python -m app.cli score-matches --answer-key data/synth/answer_key.json
 ```
 
-## Invoice matching: rules, then Claude for the leftovers (day 4, 2026-11-16)
+## 2. Invoice matching: rules, then Claude for the leftovers (2026-11-16)
 
-Claude Opus 5.5 (low effort, Claude API) was asked only about the 442 invoices the rules left unsure on seed 7. It picks routine, a component, or unsure. Code checks the component exists, applies the 15% repair/replacement rule, and raises wrong-fund flags. Claude never sees the booked fund or the answer key. Scoring rules are unchanged from day 3.
+Claude Opus 5.5 (low effort, Claude API) was asked only about the 442 invoices the rules left unsure on seed 7. It picks routine, a component, or unsure. Code checks the component exists, applies the 15% repair/replacement rule, and raises wrong-fund flags. Claude never sees the booked fund or the answer key. Scoring rules are unchanged from section 1.
 
 | Seed 7 | Coverage | Component accuracy | Precision on decided | Dollar-weighted | Repairs | Replacements | Wrong-fund flags |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -74,7 +74,7 @@ Claude Opus 5.5 (low effort, Claude API) was asked only about the 442 invoices t
 - **8 memos name the wrong building.** These are the generator's planted data-entry errors. Claude followed the memo, as any reader would, and the rules miss these too. Nothing on the invoice could reveal them.
 - **12 are "mulch top-up".** The answer key files them under playground equipment, while Claude calls them routine grounds upkeep. That's a labelling judgement in the generator, not a clear mistake. They're still counted as wrong, because the scoring rules were set before the results.
 
-**Still unsure after both steps:** 175 invoices (172 repairs, 3 replacements), mostly memos that say nothing ("Labor and materials per ticket"), or a part with look-alikes in several buildings and no building named. These go to the review queue (day 6).
+**Still unsure after both steps:** 175 invoices (172 repairs, 3 replacements), mostly memos that say nothing ("Labor and materials per ticket"), or a part with look-alikes in several buildings and no building named. These go to the review queue (section 4).
 
 **Caveats:** this is one seed. Claude isn't fully consistent at low effort: in the 10-call trial, the same memo ("coping stone") was matched once and left unsure once. The responses are cached in `backend/data/llm_cache/` (git-ignored), so re-scoring costs nothing.
 
@@ -88,7 +88,7 @@ cd backend && ../.venv/bin/python -m app.cli match-llm --max-calls 450
 cd backend && ../.venv/bin/python -m app.cli score-matches --answer-key data/synth/answer_key.json --method combined
 ```
 
-## Repair-or-replace warnings (day 5, 2026-11-17)
+## 3. Repair-or-replace warnings (2026-11-17)
 
 The app replays ten years of matched spend month by month, part by part, and raises three kinds of warnings. Each one uses only invoices dated on or before the day it fires, and a test checks this.
 
@@ -124,8 +124,8 @@ The app replays ten years of matched spend month by month, part by part, and rai
 
 - **Deferred work and overruns are easy once the replacement invoices are matched.** All 28 across the four seeds were caught, with every kind of label: deferred work 90 days after the year ends, overruns on the invoice that crossed the contingency.
 - **Early failures are slower.** With perfect labels the detector caught 17 of 20, about 13–16 months after onset (median 411–479 days by seed). The 3 misses on seed 11 failed fast: 3–5 failing repairs before an emergency replacement 17–18 months after onset. That's too few jobs for this threshold. Lowering it is a real trade-off, as the table below shows, so the threshold chosen in advance stays. With rules-only labels on the held-out seeds, it caught 8 of 15, at a median of about 16 months.
-- **Most false alarms come from matching, not the detector.** Every overdue false alarm on seeds 7 and 11 (rules) is a real replacement whose invoices were left unsure, or were matched to the same kind of part in a sibling building. A boiler replaced in Bldg A but matched to Bldg B shows up twice: A looks overdue and B looks over budget. Claude's answers cut seed 7's false alarms from 12 to 4. The leftover unsure replacement invoices are what the review queue (day 6) should surface next to each overdue warning.
-- **One early failure was missed because of the matching labels.** It's the playground on seed 7, which the detector catches with perfect labels. Of its 9 failing repairs, Claude placed 4 on the playground and called 3 "mulch top-ups" routine grounds upkeep (see day 4). The rules put the other 2, memos naming both the playground and the fence, on the fence. Four jobs over 14 months weren't enough to fire.
+- **Most false alarms come from matching, not the detector.** Every overdue false alarm on seeds 7 and 11 (rules) is a real replacement whose invoices were left unsure, or were matched to the same kind of part in a sibling building. A boiler replaced in Bldg A but matched to Bldg B shows up twice: A looks overdue and B looks over budget. Claude's answers cut seed 7's false alarms from 12 to 4. The leftover unsure replacement invoices are what the review queue (section 4) surfaces next to each overdue warning.
+- **One early failure was missed because of the matching labels.** It's the playground on seed 7, which the detector catches with perfect labels. Of its 9 failing repairs, Claude placed 4 on the playground and called 3 "mulch top-ups" routine grounds upkeep (see section 2). The rules put the other 2, memos naming both the playground and the fence, on the fence. Four jobs over 14 months weren't enough to fire.
 
 **Threshold trade-off** (pooled held-out seeds 11–13, 15 early failures). The default of 6 was not picked from this table.
 
@@ -161,9 +161,9 @@ cd backend && ../.venv/bin/python -m app.cli score-warnings --answer-key data/sy
 cd backend && ../.venv/bin/python -m app.cli eval-warnings --seeds 11 12 13 --labels rules
 ```
 
-## Review queue (day 6, 2026-11-17)
+## 4. Review queue (2026-11-17)
 
-Warnings and unsure invoices land in one review queue. Property managers (and admins) confirm or dismiss a warning, or say which part an invoice was for. Board members and auditors can only read. Every action goes to an append-only log with the user, the role and the match before and after. Changes made automatically by a rerun are logged under the user "system".
+Warnings and unsure invoices land in one review queue. Property managers (and admins) confirm or dismiss a warning, or say which part an invoice was for. Board members can only read. Every action goes to an append-only log with the user, the role and the match before and after. Changes made automatically by a rerun are logged under the user "system".
 
 An assignment reruns the warnings straight away. A warning that no longer applies is marked resolved-by-rerun, and the response says what changed. A warning a person has confirmed or dismissed is never changed by a rerun. A full sync of seed 7's queue takes about a second.
 
@@ -193,9 +193,9 @@ On seed 7 the queue starts with 15 warnings and 175 unsure invoices. Next to eac
   - The cause is the learned baseline. The rules give a part to only 933 of seed 7's 1,366 repairs, so the "usual" repair rate comes out about a third too low, and ordinary parts look busy.
   - Working the unsure invoices in the queue, not just the overdue candidates, should raise the baseline and clear some of them. That hasn't been measured.
   - The other 4 also fire with perfect labels. Those are the detector's own false alarms, which a property manager dismisses with a comment the log keeps.
-- **Clean held-out seeds are 12 and 13.** Seed 11's false alarms were inspected on day 5, before the candidate rule was written, so it isn't fully held out.
+- **Clean held-out seeds are 12 and 13.** Seed 11's false alarms were inspected while building the warnings, before the candidate rule was written, so it isn't fully held out.
 
-The day 4–5 numbers still reproduce. A reviewer's answers go into a separate "reviewed" set of matches, used only by the queue and its warnings. "Combined" stays rules + Claude.
+The section 2–3 numbers still reproduce. A reviewer's answers go into a separate "reviewed" set of matches, used only by the queue and its warnings. "Combined" stays rules + Claude.
 
 **Reproduce** (no API calls):
 
@@ -211,7 +211,7 @@ cd backend && ../.venv/bin/python -m app.cli eval-review --answer-key data/synth
 cd backend && ../.venv/bin/python -m app.cli eval-review --seeds 12 13
 ```
 
-## Reserve forecast (week 2, 2026-11-17)
+## 5. Reserve forecast (2026-11-17)
 
 For each association, the app replays the reserve balance. It starts from the study's starting balance, adds the recommended contribution each year, and subtracts the replacement spend found. It then runs 500 seeded simulations of the next ten years over the study's replacement schedule, with three adjustments:
 
