@@ -3,16 +3,23 @@
 Board members read. Property managers and admins decide. Only admins trigger a full rerun.
 """
 
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.security import CAPITAL_ADMIN_ROLES, CAPITAL_DECIDE_ROLES, CAPITAL_READ_ROLES, User, require_roles
-from app.db.models import Invoice, ReserveComponent, ReviewAction, ReviewItem
+from app.db.models import Association, Invoice, ReserveComponent, ReviewAction, ReviewItem
 from app.db.session import get_db
+from app.domain.capital_view import STATUS_RULE, QueueEntry, association_status, year_by_year
 from app.schemas import (
     AssignmentIn,
     AssignmentOut,
+    AssociationTimeline,
+    BoardAssociation,
+    BoardOut,
     ComponentOut,
     QueueChanges,
     RelatedInvoice,
@@ -147,3 +154,74 @@ def components(
     return db.scalars(
         select(ReserveComponent).where(ReserveComponent.association_id == association_id).order_by(ReserveComponent.id)
     ).all()
+
+
+def _statuses(db: Session) -> dict[str, BoardAssociation]:
+    confirmed_by = {
+        a.item_id: a.username
+        for a in db.scalars(select(ReviewAction).where(ReviewAction.action == "confirm").order_by(ReviewAction.id))
+    }
+    entries: dict[str, list[QueueEntry]] = {}
+    for i in db.scalars(select(ReviewItem)):
+        entries.setdefault(i.association_id, []).append(
+            QueueEntry(i.kind, i.warning_kind, i.status, i.title, i.amount_at_stake, confirmed_by.get(i.id))
+        )
+    out = {}
+    for a in db.scalars(select(Association).order_by(Association.id)):
+        s = association_status(entries.get(a.id, []), a.annual_contribution)
+        out[a.id] = BoardAssociation(id=a.id, name=a.name, kind=a.kind, town=a.town, units=a.units, **s.__dict__)
+    return out
+
+
+@router.get("/board", response_model=BoardOut)
+def board(db: Session = Depends(get_db), _: User = Depends(require_roles(*CAPITAL_READ_ROLES))):
+    """Every association, red first, with the reasons in plain words."""
+    rank = {"red": 0, "amber": 1, "green": 2}
+    rows = sorted(_statuses(db).values(), key=lambda r: (rank[r.status], -r.open_warnings - r.confirmed_warnings, r.id))
+    synced = db.scalar(select(func.count()).select_from(ReviewItem)) > 0
+    return BoardOut(synced=synced, rule=STATUS_RULE, associations=rows)
+
+
+@router.get("/associations/{association_id}", response_model=AssociationTimeline)
+def association(
+    association_id: str, db: Session = Depends(get_db), _: User = Depends(require_roles(*CAPITAL_READ_ROLES))
+):
+    """Plan against actual year by year (reviewed matches), the parts, and this association's warnings."""
+    a = db.get(Association, association_id)
+    if a is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Association not found")
+    invoices = list(db.scalars(select(Invoice).where(Invoice.association_id == a.id)))
+    components = list(db.scalars(select(ReserveComponent).where(ReserveComponent.association_id == a.id)))
+    all_years = [i.invoice_date.year for i in db.scalars(select(Invoice))]
+    first, last = (min(all_years), max(all_years)) if all_years else (a.study_year, a.study_year)
+    view = year_by_year(components, a, invoices, reviewed_matches(db), first, last)
+    warnings = db.scalars(
+        select(ReviewItem)
+        .where(ReviewItem.association_id == a.id, ReviewItem.kind == "warning")
+        .order_by(ReviewItem.opened_on)
+    ).all()
+    return AssociationTimeline(
+        id=a.id,
+        name=a.name,
+        kind=a.kind,
+        town=a.town,
+        units=a.units,
+        buildings=a.buildings,
+        study_year=a.study_year,
+        inflation_rate=a.inflation_rate,
+        annual_contribution=a.annual_contribution,
+        reserve_balance_start=a.reserve_balance_start,
+        status=_statuses(db)[a.id],
+        years=view["years"],
+        parts=view["parts"],
+        warnings=warnings,
+    )
+
+
+@router.get("/results")
+def results(_: User = Depends(require_roles(*CAPITAL_READ_ROLES))) -> dict:
+    """Offline evaluation results (synthetic data), written by `app.cli results`. The app never scores live."""
+    path = get_settings().capital_results_file
+    if not path.is_file():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No results file yet; run `python -m app.cli results`")
+    return json.loads(path.read_text(encoding="utf-8"))

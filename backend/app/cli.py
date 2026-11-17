@@ -155,6 +155,20 @@ def cmd_eval_review(args) -> None:
         _emit([evaluate_review_seed(seed) for seed in args.seeds], args.out)
 
 
+def cmd_results(args) -> None:
+    """Write the results page's file (aggregates on synthetic data). No API calls."""
+    from app.core.config import get_settings
+    from app.evals.bundle import build
+
+    key = json.loads(Path(args.answer_key).read_text(encoding="utf-8"))
+    out = Path(args.out) if args.out else get_settings().capital_results_file
+    with session_scope() as db:
+        bundle = build(db, key)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(bundle, indent=2) + "\n", encoding="utf-8")
+    print(f"wrote {out}")
+
+
 def cmd_sync_queue(_args) -> None:
     """Rerun warnings on the reviewed matches and reconcile the review queue."""
     from app.services.review import queue_counts, sync_queue
@@ -315,6 +329,9 @@ def main() -> None:
     er.add_argument("--seeds", type=int, nargs="+", default=[12, 13], help="in memory, rules-only, if no key")
     er.add_argument("--out", help="also write the report to this JSON file")
     sub.add_parser("sync-queue", help="rerun warnings on reviewed matches and update the review queue")
+    rs = sub.add_parser("results", help="write the results page's file from the answer key (no API calls)")
+    rs.add_argument("--answer-key", required=True)
+    rs.add_argument("--out", help="default: backend/results/capital_results.json")
     args = p.parse_args()
 
     upgrade()  # every command works against an up-to-date schema
@@ -345,6 +362,8 @@ def main() -> None:
         cmd_eval_review(args)
     elif args.cmd == "sync-queue":
         cmd_sync_queue(args)
+    elif args.cmd == "results":
+        cmd_results(args)
 
 
 if __name__ == "__main__":

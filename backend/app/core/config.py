@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     match_llm_output_price: float = 20.0
     # Responses are cached here by prompt hash, so re-scoring or re-running never pays twice.
     match_llm_cache_file: str = "llm_cache/invoice_matches.jsonl"
+    # Offline evaluation results (synthetic data) for the results page; tracked in git, written by `cli results`.
+    capital_results_file: Path = Path(__file__).resolve().parents[2] / "results" / "capital_results.json"
 
     # --- Security --------------------------------------------------------------------------------
     # Demo bearer tokens: "token:username:role,...". Replace with SSO/OIDC in production.

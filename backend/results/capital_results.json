@@ -1,0 +1,554 @@
+{
+  "label": "SYNTHETIC data. Offline evaluation; the app itself never loads the answer key.",
+  "generated_on": "2026-11-17",
+  "seed": 7,
+  "held_out_seeds": [
+    11,
+    12,
+    13
+  ],
+  "caveats": [
+    "All data is synthetic. The same person wrote the generator, the rules and the detector, so treat every number as optimistic.",
+    "Seed 7 was used to tune the rules. Seeds 11-13 were held out, but seed 11's warning false alarms were inspected before the review rule was written, so 12 and 13 are the clean held-out seeds for review.",
+    "Claude was run on seed 7 only; seeds 11-13 use rules-only matches.",
+    "The review numbers come from a simulated reviewer answering from the answer key: an upper bound, not a measurement of people.",
+    "About 12 planted problems per seed, so each detection rate rests on very few cases."
+  ],
+  "matching": [
+    {
+      "seed": 7,
+      "labels": "rules",
+      "invoices": 3749,
+      "coverage": 0.8821,
+      "component_accuracy": 0.8669,
+      "precision_on_decided": 0.9828,
+      "dollar_weighted_accuracy": 0.9282,
+      "repairs": 0.6442,
+      "replacements": 0.95,
+      "wrong_fund_flags": {
+        "true_wrong_fund_invoices": 80,
+        "flagged_correctly": 71,
+        "flagged_wrongly": 2,
+        "recall": 0.8875
+      }
+    },
+    {
+      "seed": 7,
+      "labels": "rules + Claude",
+      "invoices": 3749,
+      "coverage": 0.9533,
+      "component_accuracy": 0.9328,
+      "precision_on_decided": 0.9785,
+      "dollar_weighted_accuracy": 0.9715,
+      "repairs": 0.8192,
+      "replacements": 0.9808,
+      "wrong_fund_flags": {
+        "true_wrong_fund_invoices": 80,
+        "flagged_correctly": 80,
+        "flagged_wrongly": 2,
+        "recall": 1.0
+      }
+    },
+    {
+      "seed": 11,
+      "labels": "rules",
+      "invoices": 3787,
+      "coverage": 0.8706,
+      "component_accuracy": 0.8548,
+      "precision_on_decided": 0.9818,
+      "dollar_weighted_accuracy": 0.9062,
+      "repairs": 0.6367,
+      "replacements": 0.8944,
+      "wrong_fund_flags": {
+        "true_wrong_fund_invoices": 86,
+        "flagged_correctly": 75,
+        "flagged_wrongly": 0,
+        "recall": 0.8721
+      }
+    },
+    {
+      "seed": 12,
+      "labels": "rules",
+      "invoices": 3650,
+      "coverage": 0.891,
+      "component_accuracy": 0.8816,
+      "precision_on_decided": 0.9895,
+      "dollar_weighted_accuracy": 0.9459,
+      "repairs": 0.702,
+      "replacements": 0.9519,
+      "wrong_fund_flags": {
+        "true_wrong_fund_invoices": 98,
+        "flagged_correctly": 83,
+        "flagged_wrongly": 0,
+        "recall": 0.8469
+      }
+    },
+    {
+      "seed": 13,
+      "labels": "rules",
+      "invoices": 3810,
+      "coverage": 0.8667,
+      "component_accuracy": 0.8493,
+      "precision_on_decided": 0.98,
+      "dollar_weighted_accuracy": 0.9083,
+      "repairs": 0.6211,
+      "replacements": 0.9244,
+      "wrong_fund_flags": {
+        "true_wrong_fund_invoices": 90,
+        "flagged_correctly": 80,
+        "flagged_wrongly": 0,
+        "recall": 0.8889
+      }
+    }
+  ],
+  "claude_run": {
+    "run": "the latest match-llm run (earlier runs are kept in llm_attempts too)",
+    "asked": 442,
+    "from_cache": 10,
+    "by_status": {
+      "ok": 267,
+      "unsure": 175
+    },
+    "input_tokens": 42570,
+    "output_tokens": 36690,
+    "cache_read_tokens": 543911
+  },
+  "warnings": [
+    {
+      "seed": 7,
+      "labels": "perfect labels",
+      "events": {
+        "early_failure": {
+          "planted": 5,
+          "detected": 5,
+          "median_delay_days": 479,
+          "warned_before_replacement": 5,
+          "replaced_in_history": 5
+        },
+        "deferred": {
+          "planted": 3,
+          "detected": 3,
+          "median_delay_days": 90
+        },
+        "cost_overrun": {
+          "planted": 4,
+          "detected": 4,
+          "median_delay_days": 171.0
+        }
+      },
+      "detected": 12,
+      "planted": 12,
+      "false_alarms": 1,
+      "false_alarms_by_kind": {
+        "failing_early": 1
+      },
+      "per_100": 0.04
+    },
+    {
+      "seed": 7,
+      "labels": "rules",
+      "events": {
+        "early_failure": {
+          "planted": 5,
+          "detected": 4,
+          "median_delay_days": 583.5,
+          "warned_before_replacement": 4,
+          "replaced_in_history": 5
+        },
+        "deferred": {
+          "planted": 3,
+          "detected": 3,
+          "median_delay_days": 90
+        },
+        "cost_overrun": {
+          "planted": 4,
+          "detected": 4,
+          "median_delay_days": 171.0
+        }
+      },
+      "detected": 11,
+      "planted": 12,
+      "false_alarms": 12,
+      "false_alarms_by_kind": {
+        "failing_early": 4,
+        "over_budget": 1,
+        "overdue": 7
+      },
+      "per_100": 0.48
+    },
+    {
+      "seed": 7,
+      "labels": "rules + Claude",
+      "events": {
+        "early_failure": {
+          "planted": 5,
+          "detected": 4,
+          "median_delay_days": 440.0,
+          "warned_before_replacement": 4,
+          "replaced_in_history": 5
+        },
+        "deferred": {
+          "planted": 3,
+          "detected": 3,
+          "median_delay_days": 90
+        },
+        "cost_overrun": {
+          "planted": 4,
+          "detected": 4,
+          "median_delay_days": 171.0
+        }
+      },
+      "detected": 11,
+      "planted": 12,
+      "false_alarms": 4,
+      "false_alarms_by_kind": {
+        "failing_early": 1,
+        "over_budget": 1,
+        "overdue": 2
+      },
+      "per_100": 0.16
+    },
+    {
+      "seed": 11,
+      "labels": "perfect labels",
+      "events": {
+        "early_failure": {
+          "planted": 5,
+          "detected": 2,
+          "median_delay_days": 411.0,
+          "warned_before_replacement": 2,
+          "replaced_in_history": 5
+        },
+        "deferred": {
+          "planted": 3,
+          "detected": 3,
+          "median_delay_days": 90
+        },
+        "cost_overrun": {
+          "planted": 4,
+          "detected": 4,
+          "median_delay_days": 202.5
+        }
+      },
+      "detected": 9,
+      "planted": 12,
+      "false_alarms": 1,
+      "false_alarms_by_kind": {
+        "failing_early": 1
+      },
+      "per_100": 0.04
+    },
+    {
+      "seed": 12,
+      "labels": "perfect labels",
+      "events": {
+        "early_failure": {
+          "planted": 5,
+          "detected": 5,
+          "median_delay_days": 433,
+          "warned_before_replacement": 5,
+          "replaced_in_history": 5
+        },
+        "deferred": {
+          "planted": 3,
+          "detected": 3,
+          "median_delay_days": 90
+        },
+        "cost_overrun": {
+          "planted": 4,
+          "detected": 4,
+          "median_delay_days": 238.0
+        }
+      },
+      "detected": 12,
+      "planted": 12,
+      "false_alarms": 1,
+      "false_alarms_by_kind": {
+        "failing_early": 1
+      },
+      "per_100": 0.04
+    },
+    {
+      "seed": 13,
+      "labels": "perfect labels",
+      "events": {
+        "early_failure": {
+          "planted": 5,
+          "detected": 5,
+          "median_delay_days": 453,
+          "warned_before_replacement": 5,
+          "replaced_in_history": 5
+        },
+        "deferred": {
+          "planted": 3,
+          "detected": 3,
+          "median_delay_days": 90
+        },
+        "cost_overrun": {
+          "planted": 4,
+          "detected": 4,
+          "median_delay_days": 206.5
+        }
+      },
+      "detected": 12,
+      "planted": 12,
+      "false_alarms": 2,
+      "false_alarms_by_kind": {
+        "failing_early": 2
+      },
+      "per_100": 0.08
+    },
+    {
+      "seed": 11,
+      "labels": "rules",
+      "events": {
+        "early_failure": {
+          "planted": 5,
+          "detected": 1,
+          "median_delay_days": 627,
+          "warned_before_replacement": 1,
+          "replaced_in_history": 5
+        },
+        "deferred": {
+          "planted": 3,
+          "detected": 3,
+          "median_delay_days": 90
+        },
+        "cost_overrun": {
+          "planted": 4,
+          "detected": 4,
+          "median_delay_days": 202.5
+        }
+      },
+      "detected": 8,
+      "planted": 12,
+      "false_alarms": 21,
+      "false_alarms_by_kind": {
+        "failing_early": 2,
+        "over_budget": 1,
+        "overdue": 18
+      },
+      "per_100": 0.82
+    },
+    {
+      "seed": 12,
+      "labels": "rules",
+      "events": {
+        "early_failure": {
+          "planted": 5,
+          "detected": 4,
+          "median_delay_days": 458.5,
+          "warned_before_replacement": 4,
+          "replaced_in_history": 5
+        },
+        "deferred": {
+          "planted": 3,
+          "detected": 3,
+          "median_delay_days": 90
+        },
+        "cost_overrun": {
+          "planted": 4,
+          "detected": 4,
+          "median_delay_days": 238.0
+        }
+      },
+      "detected": 11,
+      "planted": 12,
+      "false_alarms": 10,
+      "false_alarms_by_kind": {
+        "failing_early": 2,
+        "overdue": 8
+      },
+      "per_100": 0.41
+    },
+    {
+      "seed": 13,
+      "labels": "rules",
+      "events": {
+        "early_failure": {
+          "planted": 5,
+          "detected": 3,
+          "median_delay_days": 351,
+          "warned_before_replacement": 3,
+          "replaced_in_history": 5
+        },
+        "deferred": {
+          "planted": 3,
+          "detected": 3,
+          "median_delay_days": 90
+        },
+        "cost_overrun": {
+          "planted": 4,
+          "detected": 4,
+          "median_delay_days": 206.5
+        }
+      },
+      "detected": 10,
+      "planted": 12,
+      "false_alarms": 12,
+      "false_alarms_by_kind": {
+        "failing_early": 3,
+        "over_budget": 1,
+        "overdue": 8
+      },
+      "per_100": 0.47
+    }
+  ],
+  "threshold_tradeoff": [
+    {
+      "threshold": 4.0,
+      "labels": "perfect labels",
+      "caught": 13,
+      "planted": 15,
+      "false_failing_early": 41
+    },
+    {
+      "threshold": 4.0,
+      "labels": "rules",
+      "caught": 10,
+      "planted": 15,
+      "false_failing_early": 48
+    },
+    {
+      "threshold": 5.0,
+      "labels": "perfect labels",
+      "caught": 13,
+      "planted": 15,
+      "false_failing_early": 15
+    },
+    {
+      "threshold": 5.0,
+      "labels": "rules",
+      "caught": 9,
+      "planted": 15,
+      "false_failing_early": 18
+    },
+    {
+      "threshold": 6.0,
+      "labels": "perfect labels",
+      "caught": 12,
+      "planted": 15,
+      "false_failing_early": 4
+    },
+    {
+      "threshold": 6.0,
+      "labels": "rules",
+      "caught": 8,
+      "planted": 15,
+      "false_failing_early": 7
+    }
+  ],
+  "review": [
+    {
+      "seed": 7,
+      "labels": "rules + Claude",
+      "invoices_reviewed": 8,
+      "rounds": 1,
+      "unsure_in_queue": 175,
+      "before": {
+        "warnings": 15,
+        "detected": 11,
+        "planted": 12,
+        "false_alarms": 4,
+        "false_alarms_by_kind": {
+          "failing_early": 1,
+          "over_budget": 1,
+          "overdue": 2
+        }
+      },
+      "after": {
+        "warnings": 12,
+        "detected": 11,
+        "planted": 12,
+        "false_alarms": 1,
+        "false_alarms_by_kind": {
+          "failing_early": 1
+        }
+      },
+      "detections_lost": []
+    },
+    {
+      "seed": 11,
+      "labels": "rules",
+      "invoices_reviewed": 46,
+      "rounds": 1,
+      "unsure_in_queue": 490,
+      "before": {
+        "warnings": 29,
+        "detected": 8,
+        "planted": 12,
+        "false_alarms": 21,
+        "false_alarms_by_kind": {
+          "failing_early": 2,
+          "over_budget": 1,
+          "overdue": 18
+        }
+      },
+      "after": {
+        "warnings": 10,
+        "detected": 8,
+        "planted": 12,
+        "false_alarms": 2,
+        "false_alarms_by_kind": {
+          "failing_early": 2
+        }
+      },
+      "detections_lost": []
+    },
+    {
+      "seed": 12,
+      "labels": "rules",
+      "invoices_reviewed": 13,
+      "rounds": 1,
+      "unsure_in_queue": 398,
+      "before": {
+        "warnings": 21,
+        "detected": 11,
+        "planted": 12,
+        "false_alarms": 10,
+        "false_alarms_by_kind": {
+          "failing_early": 2,
+          "overdue": 8
+        }
+      },
+      "after": {
+        "warnings": 13,
+        "detected": 11,
+        "planted": 12,
+        "false_alarms": 2,
+        "false_alarms_by_kind": {
+          "failing_early": 2
+        }
+      },
+      "detections_lost": []
+    },
+    {
+      "seed": 13,
+      "labels": "rules",
+      "invoices_reviewed": 35,
+      "rounds": 1,
+      "unsure_in_queue": 508,
+      "before": {
+        "warnings": 22,
+        "detected": 10,
+        "planted": 12,
+        "false_alarms": 12,
+        "false_alarms_by_kind": {
+          "failing_early": 3,
+          "over_budget": 1,
+          "overdue": 8
+        }
+      },
+      "after": {
+        "warnings": 13,
+        "detected": 10,
+        "planted": 12,
+        "false_alarms": 3,
+        "false_alarms_by_kind": {
+          "failing_early": 3
+        }
+      },
+      "detections_lost": []
+    }
+  ]
+}

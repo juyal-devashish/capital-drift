@@ -329,3 +329,40 @@ class ComponentOut(_ORM):
     remaining_life_years: int
     replacement_cost: float
     planned_year: int
+
+
+class BoardAssociation(BaseModel):
+    id: str
+    name: str
+    kind: str
+    town: str
+    units: int
+    status: Literal["red", "amber", "green"]
+    reasons: list[str]
+    open_warnings: int
+    confirmed_warnings: int
+    unplaced_invoices: int
+    unplaced_amount: float
+
+
+class BoardOut(BaseModel):
+    synced: bool  # False until the review queue has been built once; the board would read all green
+    rule: str
+    associations: list[BoardAssociation]
+
+
+class AssociationTimeline(BaseModel):
+    id: str
+    name: str
+    kind: str
+    town: str
+    units: int
+    buildings: int
+    study_year: int
+    inflation_rate: float
+    annual_contribution: float
+    reserve_balance_start: float
+    status: BoardAssociation
+    years: list[dict]
+    parts: list[dict]
+    warnings: list[ReviewItemOut]
