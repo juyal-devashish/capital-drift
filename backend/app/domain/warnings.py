@@ -14,7 +14,8 @@ Three checks, each written as a call a board or manager can act on:
   contingency.
 
 Every warning uses only spend dated on or before the day it fires, so replaying a history gives the
-same warnings a live system would have raised. Nothing here knows how the synthetic data was made.
+same warnings a live system would have raised. Nothing here imports the synthetic-data generator; the
+fixed settings below are round numbers, and docs/results.md says where they sit relative to it.
 """
 
 import math
@@ -75,8 +76,8 @@ class WatchSettings:
     # failing_early: Poisson CUSUM tuned to catch repairs arriving at `rate_ratio` x the usual rate.
     rate_ratio: float = 4.0
     # Chosen before scoring any planted event: at a usual 0.5 repairs a year, a healthy part runs
-    # about 600 years before a false alarm (`in_control_years`), so a 20-association portfolio
-    # (~2,500 watched component-years) should see about 4 if the baseline were exact.
+    # about 950 years per false alarm (`in_control_years`), so a 20-association portfolio
+    # (~2,500 watched component-years) should see 2 or 3 if the baseline were exact.
     cusum_threshold: float = 6.0
     burn_in_months: int = 12  # learn the usual rate before watching
     prior_months: float = 120.0  # weight of the portfolio-wide rate when a bucket has little data
@@ -287,7 +288,7 @@ def _failing_early(st: _State, on: date, lam_month: float) -> SpendWarning:
     months = (on.year - since.year) * 12 + on.month - since.month + 1
     usual = lam_month * 12
     plan_cost = inflated_cost(c, st.assoc, st.due_year)
-    per_year = plan_cost / c.useful_life_years
+    per_year = inflated_cost(c, st.assoc, on.year) / c.useful_life_years  # today's dollars, like the repairs
     lines = [
         f"{_jobs(len(climb)).capitalize()} on {_the(c)} in {months} months since {since:%b %Y}, "
         f"costing {_money(sum(r.amount for r in climb))}. Parts this age usually need about {usual:.1f} a year.",
@@ -365,27 +366,24 @@ def _over_budget(st: _State, p: _Project, on: date) -> SpendWarning:
 
 
 def in_control_years(
-    rate_per_year: float, settings: WatchSettings | None = None, runs: int = 2000, seed: int = 0
+    rate_per_year: float, settings: WatchSettings | None = None, years: int = 200_000, seed: int = 0
 ) -> float:
-    """Mean years until the CUSUM falsely fires on a part repaired at its usual rate (simulated).
+    """Years per false alarm for a part repaired at its usual rate, simulated (restarting after each alarm).
 
-    Used to pick ``cusum_threshold`` from a target false-alarm rate rather than from the planted events.
+    Counting alarms over one long stream avoids the bias of averaging capped run lengths. Used to pick
+    ``cusum_threshold`` from a target false-alarm rate rather than from the planted events.
     """
     s = settings or WatchSettings()
     rng = random.Random(seed)
     lam = rate_per_year / 12
-    log_r, drift = math.log(s.rate_ratio), (s.rate_ratio - 1) * lam
-    cap, total = 12_000, 0  # 1,000 years
-    for _ in range(runs):
-        cusum, month = 0.0, 0
-        while month < cap:
-            month += 1
-            n, p, limit = 0, rng.random(), math.exp(-lam)
-            while p > limit:  # Poisson draw by multiplication
-                n += 1
-                p *= rng.random()
-            cusum = max(0.0, cusum + n * log_r - drift)
-            if cusum >= s.cusum_threshold:
-                break
-        total += month
-    return total / runs / 12
+    log_r, drift, limit = math.log(s.rate_ratio), (s.rate_ratio - 1) * lam, math.exp(-lam)
+    cusum, alarms = 0.0, 0
+    for _ in range(years * 12):
+        n, p = 0, rng.random()
+        while p > limit:  # Poisson draw by multiplication
+            n += 1
+            p *= rng.random()
+        cusum = max(0.0, cusum + n * log_r - drift)
+        if cusum >= s.cusum_threshold:
+            alarms, cusum = alarms + 1, 0.0
+    return years / max(alarms, 1)

@@ -124,8 +124,8 @@ def test_warnings_never_use_spend_after_the_day_they_fire():
 
 
 def test_the_default_threshold_keeps_healthy_parts_quiet_for_centuries():
-    assert in_control_years(0.5, runs=400) >= 400
-    assert in_control_years(1.0, runs=400) >= 300
+    assert in_control_years(0.5, years=50_000) >= 800
+    assert in_control_years(1.0, years=50_000) >= 450
 
 
 # Regression floors: measured 2026-11-17 (docs/results.md). Never lower them to make a change pass.

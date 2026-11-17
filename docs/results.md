@@ -96,7 +96,7 @@ The app replays ten years of matched spend month by month, part by part, and rai
 - **Overdue:** the planned replacement year has passed, plus 90 days for final invoices, and no completed replacement has been found. A replacement counts as completed once it has cost half the plan. A deposit alone doesn't count.
 - **Over budget:** a replacement project has cost more than the plan's inflated cost plus a 15% contingency.
 
-**The threshold was set before scoring any planted event.** I simulated healthy parts at 0.5 repairs a year and picked the CUSUM threshold (6) at which one runs about 600 years before a false alarm. A 20-association portfolio is about 2,500 watched component-years, so that predicts roughly 4 false failing-early warnings. Scoring rules are in `backend/app/evals/warnings.py`, and they were written before the first run.
+**The threshold was set before scoring any planted event.** It came from simulating healthy parts at 0.5 repairs a year: at a CUSUM threshold of 6, one runs about 950 years per false alarm. A 20-association portfolio is about 2,500 watched component-years, so that predicts 2 or 3 false failing-early warnings if the learned baseline were exact. The scoring rules in `backend/app/evals/warnings.py` were written before the first run.
 
 **Miscoded replacements are out of scope here.** Those are replacements booked to the operating fund, and the wrong-fund flags from matching already catch them (80/80 on seed 7).
 
@@ -112,20 +112,20 @@ The app replays ten years of matched spend month by month, part by part, and rai
 | 12, rules | 4/5 | 4/5 | 459 | 3/3 | 90 | 4/4 | 238 | 10 (8 overdue) | 0.41 |
 | 13, rules | 3/5 | 3/5 | 351 | 3/3 | 90 | 4/4 | 207 | 12 (8 overdue) | 0.47 |
 
-"Perfect labels" feeds the detector the answer key's own matches, which shows the detector alone. Seeds 11–13 have rules-only matches, since Claude was run only on seed 7. Running it on the other seeds would take about 1,300 more API calls, and I haven't run them.
+"Perfect labels" feeds the detector the answer key's own matches, which shows the detector alone. Seeds 11–13 have rules-only matches, since Claude was run only on seed 7. Running it on the other seeds would take about 1,300 more API calls, which haven't been made.
 
 **How to read it:**
 
 - **Delay:** days from the event's onset to the warning. For an early failure, onset is the first failing repair. For a deferred replacement, it's 31 December of the planned year. For a cost overrun, it's 1 January of the planned year, so that delay includes waiting for the project to be billed.
-- **Before the emergency replacement:** in every early failure the warning caught, it fired months before the part had to be replaced in an emergency (174–613 days on seed 7 with rules + Claude). That lead time is when a board can still plan the replacement instead of paying for an emergency.
+- **Before the emergency replacement:** this column equals "caught" by construction, since the failing repairs stop at the emergency replacement and the detector resets there. The informative number is the lead time: 174–613 days on seed 7 with rules + Claude. That's the window in which a board can still plan the replacement instead of paying for an emergency.
 - **False alarms** are any warning not credited to a planted event.
 
 **What the numbers say:**
 
 - **Deferred work and overruns are easy once the replacement invoices are matched.** All 28 across the four seeds were caught, with every kind of label: deferred work 90 days after the year ends, overruns on the invoice that crossed the contingency.
-- **Early failures are slower.** With perfect labels the detector caught 17 of 20, about 14–16 months after onset (median 411–479 days by seed). The 3 misses on seed 11 failed fast: 3–5 failing repairs before an emergency replacement 17–18 months after onset. That's too few jobs for this threshold. Lowering it is a real trade-off, as the table below shows, so I kept the threshold chosen in advance.
-- **Most false alarms come from matching, not the detector.** Every overdue false alarm on seeds 7 and 11 is a real replacement whose invoices were left unsure or matched to a look-alike part in another building. A boiler replaced in Bldg A but matched to Bldg B shows up twice: A looks overdue and B looks over budget. Claude's answers cut seed 7's false alarms from 12 to 4. The leftover unsure replacement invoices are what the review queue (day 6) should surface next to each overdue warning.
-- **One early failure was missed because of the matching labels.** It's the playground on seed 7, which the detector catches with perfect labels. Its failing repairs are the "mulch top-up" invoices that Claude called routine grounds upkeep (see day 4).
+- **Early failures are slower.** With perfect labels the detector caught 17 of 20, about 13–16 months after onset (median 411–479 days by seed). The 3 misses on seed 11 failed fast: 3–5 failing repairs before an emergency replacement 17–18 months after onset. That's too few jobs for this threshold. Lowering it is a real trade-off, as the table below shows, so the threshold chosen in advance stays. With rules-only labels on the held-out seeds, it caught 8 of 15, at a median of about 16 months.
+- **Most false alarms come from matching, not the detector.** Every overdue false alarm on seeds 7 and 11 (rules) is a real replacement whose invoices were left unsure, or were matched to the same kind of part in a sibling building. A boiler replaced in Bldg A but matched to Bldg B shows up twice: A looks overdue and B looks over budget. Claude's answers cut seed 7's false alarms from 12 to 4. The leftover unsure replacement invoices are what the review queue (day 6) should surface next to each overdue warning.
+- **One early failure was missed because of the matching labels.** It's the playground on seed 7, which the detector catches with perfect labels. Of its 9 failing repairs, Claude placed 4 on the playground and called 3 "mulch top-ups" routine grounds upkeep (see day 4). The rules put the other 2, memos naming both the playground and the fence, on the fence. Four jobs over 14 months weren't enough to fire.
 
 **Threshold trade-off** (pooled held-out seeds 11–13, 15 early failures). The default of 6 was not picked from this table.
 
@@ -139,7 +139,13 @@ The app replays ten years of matched spend month by month, part by part, and rai
 
 - The planted early-failure signal is about 10–20 times the normal repair rate, so high detection with perfect labels is expected by construction.
 - There are 12 in-scope events per seed, so each rate rests on very few cases.
-- The 15% contingency and the 90-day grace are round numbers I chose, not fitted. The generator's normal projects run up to 12% over the plan and overruns at least 17% over, so the 15% contingency sits in a gap the generator itself creates.
+- The fixed settings are round numbers, not fitted, but each sits in a gap the generator creates:
+  - The 15% contingency: normal projects run at most 12% over the plan and overruns at least 17% over.
+  - The 50% completion share: deposits are 30–40% and partial repairs under 15%.
+  - The 180-day project gap: the generator's longest project spans about 135 days.
+  - The 90-day grace: final invoices land at most about two weeks into the next year.
+
+  Real projects will be messier on all four.
 
 **Reproduce** (no API calls; Claude's matches come from the cache):
 
