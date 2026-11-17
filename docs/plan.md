@@ -29,7 +29,7 @@ Three changes come from FiXA's own site (fixai.tech, read on 2026-11-16). Its HO
 
 ## Week 2: polish (optional)
 
-1. A forecast of which associations run out of reserve money first.
+1. ✅ A forecast of which associations run out of reserve money first (done 2026-11-17; see [results.md](results.md)).
 2. Deploy on AWS (RDS, App Runner, S3 and CloudFront, Bedrock). Only with your go-ahead.
 3. A 2-minute walkthrough recording and a short message to FiXA's founders.
 

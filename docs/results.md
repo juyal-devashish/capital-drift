@@ -210,3 +210,47 @@ cd backend && ../.venv/bin/python -m app.cli eval-review --answer-key data/synth
 ```bash
 cd backend && ../.venv/bin/python -m app.cli eval-review --seeds 12 13
 ```
+
+## Reserve forecast (week 2, 2026-11-17)
+
+For each association, the app replays the reserve balance. It starts from the study's starting balance, adds the recommended contribution each year, and subtracts the replacement spend found. It then runs 500 seeded simulations of the next ten years over the study's replacement schedule, with three adjustments:
+
+- **Past-due parts** are due now.
+- **Parts warned as failing early** come due within three years.
+- **Replacement costs** vary as much as this portfolio's own finished projects did. Ratios outside 0.5–2× are treated as matching errors and left out.
+
+The board lists who runs short first. Each association page charts the balance so far and the forecast.
+
+**The study doesn't say whether contributions rise**, so both cases are shown:
+
+- **Flat:** the study's figure every year.
+- **Rising:** that figure grown at the study's inflation rate.
+
+The synthetic study gives one contribution figure and an inflation rate for costs. CAI's reserve study standards only require a study to disclose the interest and inflation rates it assumes, "zero or otherwise". The reserve is assumed to earn no interest. A balance below zero is a modelled shortfall: work that would need other money, or would be put off.
+
+**Backtest.** The forecast runs from the end of 2020 using only invoices up to then (rules-only matches), and is compared with the balances that actually followed in 2021–2025. Those actual balances use true replacement spend and the same contribution rule. The scoring rules are in `backend/app/evals/forecast.py`.
+
+The baseline is the plain study schedule: every planned replacement on time, at plan cost. Seeds 14–17 were first run after the forecast was written. Seeds 7 and 11–13 were used while building it.
+
+| Contributions | Seeds | Ran short in 2021–25 | Already short in 2020 | Forecast called (false) | Plain schedule called (false) | Band held the balance |
+| --- | --- | --- | --- | --- | --- | --- |
+| Flat | 7, 11–13 | 24 | 2 | 22 (6) | 18 (3) | 34–59% |
+| Flat | 14–17 (fresh) | 26 | 4 | 24 (5) | 19 (0) | 27–64% |
+| Rising | 7, 11–13 | 21 | 2 | 17 (1) | 16 (0) | 34–59% |
+| Rising | 14–17 (fresh) | 22 | 4 | 18 (2) | 13 (1) | 27–64% |
+
+**What it shows:**
+
+- **It finds more of the associations that run short than the plain schedule does,** in both contribution modes and on the fresh seeds, at the cost of a few more false calls.
+- **The misses are emergencies nobody could see coming.** On seeds 7 and 11–13 with perfect labels, every miss was an early failure that hadn't shown by 2020.
+- **Most false calls are replacements that were planned but never done.** That was 4 of the 7 on those seeds. There the forecast's "short if the work is done" is right, and the work wasn't done.
+- **The band is too narrow and isn't an 80% interval.** It reflects spread in replacement cost only. Early failures and deferrals aren't in it, so it held the actual balance only 27–64% of the time. The page says so.
+- **The forecast inherits matching errors.** A replacement left unplaced makes its part look past due, so the forecast charges it again next year. Ridley Creek's Bldg A elevator on seed 7 is an example: its replacement invoices are still in the review queue.
+
+**On the seed-7 demo:** 7 of 20 associations are already short at the end of 2025 with flat contributions, and 6 with rising. Within ten years, 19 are short in at least half the runs with flat contributions, and 15 with rising. The generator funds associations at 30–80% of the full amount and sets contributions at 60–110% of need, so heavy shortfalls are partly built into the synthetic data.
+
+**Reproduce:**
+
+```bash
+cd backend && ../.venv/bin/python -c "from app.evals.forecast import backtest_seed; print(backtest_seed(14, 'rules', contributions='flat'))"
+```

@@ -4,7 +4,8 @@ import { Link } from "react-router-dom";
 import { api } from "../../api";
 import { CAPITAL_DECIDE_ROLES, useAuth } from "../../auth";
 import { EmptyState, ErrorNote, Loading } from "../../components/Marks";
-import { KIND_NAMES, plural } from "../../format";
+import { KIND_NAMES, plural, usd } from "../../format";
+import type { ForecastRow } from "../../types";
 import { useAsync } from "../../hooks";
 import { usePageTitle } from "../../prefs";
 
@@ -12,6 +13,56 @@ const STATUS_WORDS = { red: "Needs attention", amber: "Watch", green: "On plan" 
 
 export function SyntheticNote() {
   return <span className="synthetic-note">Synthetic data: made-up associations, studies and invoices</span>;
+}
+
+function when(balance: number, year: number | null, share: number): string {
+  if (balance < 0) return `Already short ${usd(-balance)}`;
+  if (year) return `${year} (${Math.round(share * 100)}% of runs)`;
+  return share > 0 ? `Not in the middle case (${Math.round(share * 100)}% of runs)` : "Not within ten years";
+}
+
+function RunsShort() {
+  const fc = useAsync(() => api.capital.forecast(), []);
+  if (fc.error) return <ErrorNote message={fc.error} onRetry={fc.reload} />;
+  if (!fc.data) return <Loading />;
+  const rows: ForecastRow[] = fc.data.associations;
+  return (
+    <section className="stack" style={{ marginTop: "2rem" }}>
+      <div>
+        <h2 style={{ marginBottom: "0.25rem" }}>Who runs short of reserve money first</h2>
+        <p className="quiet" style={{ margin: 0 }}>
+          A ten-year forecast from the end of {fc.data.as_of}. The study doesn't say whether contributions rise, so both cases are shown.{" "}
+          {fc.data.assumptions}
+        </p>
+      </div>
+      <div className="table-wrap">
+        <table className="ledger compact">
+          <thead>
+            <tr>
+              <th>Association</th>
+              <th>Flat contributions: short in</th>
+              <th>Rising with inflation: short in</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.association_id}>
+                <td>
+                  <Link className="row-link" to={`/capital/associations/${encodeURIComponent(r.association_id)}`}>
+                    <span>
+                      <i className={`light light-${r.status}`} aria-hidden="true" /> {r.name}
+                    </span>
+                  </Link>
+                </td>
+                <td>{when(r.start_balance, r.first_short_year, r.share_short)}</td>
+                <td>{when(r.start_balance_rising, r.first_short_year_rising, r.share_short_rising)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
 }
 
 export function Board() {
@@ -82,6 +133,7 @@ export function Board() {
               </Link>
             ))}
           </div>
+          <RunsShort />
         </>
       )}
     </>

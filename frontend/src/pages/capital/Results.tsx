@@ -154,7 +154,62 @@ export function CapitalResults() {
 
         <section className="stack">
           <div>
-            <h2 style={{ marginBottom: "0.25rem" }}>3. How much review clears the false alarms</h2>
+            <h2 style={{ marginBottom: "0.25rem" }}>3. Forecast backtest: who ran short</h2>
+            <p className="quiet" style={{ margin: 0 }}>
+              Forecast from the end of 2020 using only invoices up to then (rules-only matches), compared with what followed in 2021–2025. The plain
+              schedule assumes every planned replacement happens on time at plan cost. Seeds 14–17 were first run after the forecast was written.
+            </p>
+          </div>
+          <div className="table-wrap">
+            <table className="ledger results-table">
+              <thead>
+                <tr>
+                  <th>Contributions</th>
+                  <th>Seeds</th>
+                  <th className="num">Ran short</th>
+                  <th className="num">Forecast called</th>
+                  <th className="num">Plain schedule called</th>
+                  <th className="num">Band held the balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.forecast_backtest.map((b) => (
+                  <tr key={`${b.contributions}-${b.group}`}>
+                    <td>{b.contributions === "flat" ? "Flat" : "Rising with inflation"}</td>
+                    <td>
+                      {b.seeds.join(", ")}
+                      <span className="sub">{b.group === "fresh" ? "fresh" : "used while building"}</span>
+                    </td>
+                    <td className="num">
+                      {b.ran_short}
+                      <span className="sub">{b.already_below_zero} already short in 2020</span>
+                    </td>
+                    <td className="num">
+                      <strong>{b.called_and_ran_short}</strong>
+                      <span className="sub">{b.false_calls} false</span>
+                    </td>
+                    <td className="num">
+                      {b.plain_called_and_ran_short}
+                      <span className="sub">{b.plain_false_calls} false</span>
+                    </td>
+                    <td className="num">
+                      {Math.round(Math.min(...b.band_coverage) * 100)}–{Math.round(Math.max(...b.band_coverage) * 100)}%
+                      <span className="sub">target 80%</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="quiet" style={{ margin: 0 }}>
+            Checked on seeds 7 and 11–13 with perfect labels: every missed call was an early failure that hadn't shown by 2020, and 4 of the 7
+            false calls were replacements planned but never done. The band reflects replacement cost alone, so it is too narrow.
+          </p>
+        </section>
+
+        <section className="stack">
+          <div>
+            <h2 style={{ marginBottom: "0.25rem" }}>4. How much review clears the false alarms</h2>
             <p className="quiet" style={{ margin: 0 }}>
               A simulated property manager places only the candidate invoices listed beside each past-due warning, answering from the answer key.
               An upper bound: real people make mistakes.

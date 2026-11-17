@@ -255,8 +255,17 @@ def forecast(db: Session = Depends(get_db), _: User = Depends(require_roles(*CAP
                 first_short_year_rising=r.first_short_year,
             )
         )
-    # Most likely to run short, then soonest, then deepest relative to what the association puts in.
-    rows.sort(key=lambda r: (-r.share_short, r.first_short_year or 9999, r.lowest_p50_in_contributions))
+    # Already short first, deepest (in years of contributions) first; then most likely to run short,
+    # then soonest, then deepest.
+    rows.sort(
+        key=lambda r: (
+            r.start_balance >= 0,
+            r.start_balance / r.annual_contribution if r.start_balance < 0 else 0,
+            -r.share_short,
+            r.first_short_year or 9999,
+            r.lowest_p50_in_contributions,
+        )
+    )
     as_of = forecasts[0].as_of if forecasts else None
     return ForecastBoard(as_of=as_of, assumptions=ASSUMPTIONS, associations=rows)
 

@@ -1,12 +1,14 @@
 // One association: plan against actual year by year (the study's replacement cycles, inflated, next to
 // the replacement and repair spend found in its invoices), the warnings on the timeline, and every part.
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../../api";
 import { ErrorNote, Loading } from "../../components/Marks";
 import { KIND_NAMES, plural, usd, usdShort } from "../../format";
 import { useAsync } from "../../hooks";
 import { usePageTitle } from "../../prefs";
-import type { AssociationTimeline, ReviewItem } from "../../types";
+import type { AssociationTimeline, ForecastData, ReviewItem } from "../../types";
+import { ForecastChart } from "./ForecastChart";
 import { SyntheticNote } from "./Board";
 import { ItemStatus, ItemTag } from "./Queue";
 
@@ -66,6 +68,61 @@ function Timeline({ a }: { a: AssociationTimeline }) {
         </span>
         <span>Tallest bar: {usdShort(max)}</span>
       </div>
+    </section>
+  );
+}
+
+/** One sentence a board member can repeat: where the reserve stands and when it runs short, if it does. */
+export function forecastSentence(f: ForecastData, contribution: string): string {
+  const now = f.start_balance < 0 ? `a modelled shortfall of ${usd(-f.start_balance)}` : `${usd(f.start_balance)} in reserve`;
+  const runs = Math.round(f.share_short * 100);
+  const when =
+    f.start_balance < 0
+      ? "It is already short."
+      : f.first_short_year
+        ? `In the middle case it runs short in ${f.first_short_year}; ${runs}% of runs go short within ten years.`
+        : runs > 0
+          ? `In the middle case it stays above zero, but ${runs}% of runs go short within ten years.`
+          : "It stays above zero in every run.";
+  return `With ${contribution}, the books end ${f.as_of} at ${now}. ${when}`;
+}
+
+function ForecastPanel({ a }: { a: AssociationTimeline }) {
+  const [mode, setMode] = useState<"flat" | "rising">("flat");
+  const f = mode === "flat" ? a.forecast : a.forecast_rising;
+  if (!f) return null;
+  const words = mode === "flat" ? "flat contributions" : "contributions rising with inflation";
+  return (
+    <section className="panel">
+      <div className="card-head">
+        <h2>Reserve balance forecast</h2>
+        <div className="chip-group" role="group" aria-label="Contributions">
+          {(["flat", "rising"] as const).map((m) => (
+            <button key={m} className={`chip${mode === m ? " is-active" : ""}`} aria-pressed={mode === m} onClick={() => setMode(m)}>
+              {m === "flat" ? "Flat contributions" : "Rising with inflation"}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p style={{ marginTop: 0 }}>{forecastSentence(f, words)}</p>
+      <ForecastChart f={f} />
+      <div className="legend">
+        <span>
+          <i className="lg-history" /> Balance so far (study start + contributions − replacements found)
+        </span>
+        <span>
+          <i className="lg-median" /> Middle case
+        </span>
+        <span>
+          <i className="lg-band" /> 10th–90th percentile, from replacement cost alone
+        </span>
+        <span>
+          <i className="lg-short" /> Below zero: a modelled shortfall
+        </span>
+      </div>
+      <p className="quiet" style={{ fontSize: "var(--t-sm)", marginBottom: 0 }}>
+        {a.forecast_assumptions} <Link to="/capital/results">How well this did in a backtest</Link>.
+      </p>
     </section>
   );
 }
@@ -139,6 +196,8 @@ export function CapitalAssociation() {
         </div>
 
         <Timeline a={a} />
+
+        <ForecastPanel a={a} />
 
         {a.warnings.length > 0 && (
           <section className="stack">

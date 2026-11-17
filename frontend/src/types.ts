@@ -373,6 +373,45 @@ export interface PartRow {
   repair_spend: number;
 }
 
+export interface ForecastYear {
+  year: number;
+  p10: number;
+  p50: number;
+  p90: number;
+  share_below_zero: number;
+}
+
+export interface ForecastData {
+  association_id: string;
+  as_of: number;
+  start_balance: number;
+  history: { year: number; contributions: number; reserve_spend: number; balance: number }[];
+  years: ForecastYear[];
+  share_short: number;
+  first_short_year: number | null;
+  due: Record<string, number>;
+}
+
+export interface ForecastRow {
+  association_id: string;
+  name: string;
+  status: BoardStatus;
+  start_balance: number;
+  annual_contribution: number;
+  share_short: number;
+  first_short_year: number | null;
+  lowest_p50_in_contributions: number;
+  start_balance_rising: number;
+  share_short_rising: number;
+  first_short_year_rising: number | null;
+}
+
+export interface ForecastBoard {
+  as_of: number | null;
+  assumptions: string;
+  associations: ForecastRow[];
+}
+
 export interface AssociationTimeline {
   id: string;
   name: string;
@@ -388,6 +427,9 @@ export interface AssociationTimeline {
   years: YearRow[];
   parts: PartRow[];
   warnings: ReviewItem[];
+  forecast: ForecastData | null;
+  forecast_rising: ForecastData | null;
+  forecast_assumptions: string;
 }
 
 /** Offline evaluation bundle (synthetic data), see backend/app/evals/bundle.py. */
@@ -421,6 +463,19 @@ export interface CapitalResults {
     per_100: number;
   }[];
   threshold_tradeoff: { threshold: number; labels: string; caught: number; planted: number; false_failing_early: number }[];
+  forecast_backtest: {
+    contributions: string;
+    seeds: number[];
+    group: string;
+    ran_short: number;
+    already_below_zero: number;
+    called_and_ran_short: number;
+    false_calls: number;
+    plain_called_and_ran_short: number;
+    plain_false_calls: number;
+    band_coverage: number[];
+    final_year_coverage: number[];
+  }[];
   review: {
     seed: number;
     labels: string;

@@ -922,3 +922,16 @@ button.strip-col:hover:not(:disabled) { background: var(--surface-2); border-col
 .nav-heading-gap { display: block; margin-top: 0.75rem; }
 .topbar-title { font-weight: 650; color: var(--text-2); }
 .ledger .title-cell { min-width: 16rem; }
+.forecast-chart { width: 100%; height: auto; display: block; }
+.fc-grid { stroke: var(--border); stroke-width: 1; }
+.fc-zero { stroke: var(--text-3); stroke-width: 1; }
+.fc-today { stroke: var(--border-strong); stroke-dasharray: 4 4; }
+.fc-short { fill: var(--red-soft); }
+.fc-band { fill: var(--primary-soft); stroke: none; }
+.fc-history { fill: none; stroke: var(--text-2); stroke-width: 2; }
+.fc-median { fill: none; stroke: var(--primary); stroke-width: 2.5; }
+.fc-label { font-size: 11px; fill: var(--text-3); font-family: var(--sans); }
+.legend i.lg-history { background: var(--text-2); height: 3px; }
+.legend i.lg-median { background: var(--primary); height: 3px; }
+.legend i.lg-band { background: var(--primary-soft); border: 1px solid var(--primary); }
+.legend i.lg-short { background: var(--red-soft); border: 1px solid var(--red-border); }
