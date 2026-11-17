@@ -57,4 +57,16 @@ cd backend && ../.venv/bin/python -m app.cli match-llm --max-calls 10
 
 `match-llm` makes live, paid calls (Claude API with `ANTHROPIC_API_KEY` or an `ant auth login` profile, or Amazon Bedrock; see `backend/.env.example`). It stops at `--max-calls` and caches every response under `backend/data/llm_cache/`, so a re-run only pays for invoices it hasn't asked about. `--cached-only` never calls. `score-matches --method combined` scores rules plus Claude.
 
+Repair-or-replace warnings (no API calls):
+
+```bash
+cd backend && ../.venv/bin/python -m app.cli warn --method combined
+```
+
+```bash
+cd backend && ../.venv/bin/python -m app.cli score-warnings --answer-key data/synth/answer_key.json --method combined
+```
+
+`warn` replays the matched spend month by month and stores warnings: a part failing early, a replacement past due, or a replacement over budget. `eval-warnings --seeds 11 12 13` scores whole portfolios in memory without touching the database. Results are in [docs/results.md](docs/results.md).
+
 `make test` runs the backend tests and the frontend typecheck. `make dev-backend` and `make dev-frontend` start the API on :8000 and the UI on :5173. The `seed` and `eval-*` targets need Tick & Tie's test corpus (`../finqa-testdata`), which isn't included. They'll be replaced by the synthetic generator described in the plan.

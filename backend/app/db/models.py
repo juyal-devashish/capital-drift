@@ -27,6 +27,8 @@ invoice_matches        what each matcher (rules, llm) decided for each invoice: 
                        replacement of which component, with confidence, reasons and flags
 llm_attempts           every invoice sent to Claude (or held back by the budget), with the outcome,
                        raw answer, token counts and errors; failures are kept, never dropped
+spend_warnings         repair-or-replace warnings raised by watching each component's matched spend
+                       against its plan (failing early, overdue, over budget), per matching method
 
 The answer key for synthetic data (true component per invoice, planted problems) is never stored
 in these tables; see app/synth.
@@ -396,4 +398,22 @@ class LLMAttemptRecord(Base):
     cache_write_tokens: Mapped[int] = mapped_column(Integer, default=0)
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
     request_id: Mapped[str | None] = mapped_column(String(80))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class SpendWarningRecord(Base):
+    """One repair-or-replace warning. Replaced on every watch run for the matching method it used."""
+
+    __tablename__ = "spend_warnings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    method: Mapped[str] = mapped_column(String(20), index=True)  # matches used: rules | combined
+    kind: Mapped[str] = mapped_column(String(20))  # failing_early | overdue | over_budget
+    association_id: Mapped[str] = mapped_column(ForeignKey("associations.id", ondelete="CASCADE"), index=True)
+    component_id: Mapped[str] = mapped_column(ForeignKey("reserve_components.id", ondelete="CASCADE"), index=True)
+    fired_on: Mapped[date] = mapped_column(Date)
+    headline: Mapped[str] = mapped_column(String(200))
+    message: Mapped[str] = mapped_column(Text)
+    numbers: Mapped[dict] = mapped_column(JSON, default=dict)
+    invoice_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

@@ -42,6 +42,7 @@ Three changes come from FiXA's own site (fixai.tech, read on 2026-11-16). Its HO
 
 ## Settled
 
+- Day 5 done on 2026-11-17: repair-or-replace warnings (failing early, overdue, over budget) replayed month by month with no lookahead. On held-out seeds with perfect labels, they caught all deferred and over-budget replacements and 12 of 15 early failures, each before the emergency replacement, 14–16 months after onset. Rules-only matching adds false overdue warnings where replacement invoices stay unsure, which Claude cuts on seed 7 from 12 false alarms to 4. Details in [results.md](results.md).
 - Day 4 done on 2026-11-16: Claude Opus 5.5 answers the invoices the rules leave unsure. On seed 7, rules + Claude reach 93.3% component accuracy (rules alone 86.7%) and catch all 80 wrong-fund invoices, for $1.22 of API calls. Details in [results.md](results.md).
 - Day 3 done on 2026-11-16: rules decide 87-89% of invoices and are right on about 98% of those; 85-88% component accuracy over all invoices on held-out seeds. Results and caveats are in [results.md](results.md).
 - Day 2 done on 2026-11-16: each association's reserve study is also a 3-page PDF report (cover with funding summary, component inventory, replacement schedule). The app loads components and funding figures from the PDFs by default. All 300 studies across seeds 1-15 read back exactly. A row it can't read is a warning, and the loader refuses a study with any warning.

@@ -87,3 +87,70 @@ cd backend && ../.venv/bin/python -m app.cli match-llm --max-calls 450
 ```bash
 cd backend && ../.venv/bin/python -m app.cli score-matches --answer-key data/synth/answer_key.json --method combined
 ```
+
+## Repair-or-replace warnings (day 5, 2026-11-17)
+
+The app replays ten years of matched spend month by month, part by part, and raises three kinds of warnings. Each one uses only invoices dated on or before the day it fires, and a test checks this.
+
+- **Failing early:** repairs are arriving much faster than usual for a part this age, while the plan doesn't replace it until more than a year out. This is a Poisson CUSUM (a running log-likelihood-ratio test) on monthly repair *counts*, tuned to detect a 4× rise. It counts jobs rather than dollars, because one big partial repair shouldn't look like a failing part. The usual rate is learned from the portfolio, pooled by age as a share of useful life, using only the months seen so far.
+- **Overdue:** the planned replacement year has passed, plus 90 days for final invoices, and no completed replacement has been found. A replacement counts as completed once it has cost half the plan. A deposit alone doesn't count.
+- **Over budget:** a replacement project has cost more than the plan's inflated cost plus a 15% contingency.
+
+**The threshold was set before scoring any planted event.** I simulated healthy parts at 0.5 repairs a year and picked the CUSUM threshold (6) at which one runs about 600 years before a false alarm. A 20-association portfolio is about 2,500 watched component-years, so that predicts roughly 4 false failing-early warnings. Scoring rules are in `backend/app/evals/warnings.py`, and they were written before the first run.
+
+**Miscoded replacements are out of scope here.** Those are replacements booked to the operating fund, and the wrong-fund flags from matching already catch them (80/80 on seed 7).
+
+| Seed, labels | Early failures caught | Before the emergency replacement | Median delay (days) | Deferred caught | Delay | Cost overruns caught | Delay | False alarms | Per 100 component-years |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 7, perfect labels | 5/5 | 5/5 | 479 | 3/3 | 90 | 4/4 | 171 | 1 (1 failing early) | 0.04 |
+| 7, rules | 4/5 | 4/5 | 584 | 3/3 | 90 | 4/4 | 171 | 12 (7 overdue, 4 failing early, 1 over budget) | 0.48 |
+| 7, rules + Claude | 4/5 | 4/5 | 440 | 3/3 | 90 | 4/4 | 171 | 4 (2 overdue, 1 failing early, 1 over budget) | 0.16 |
+| 11, perfect labels | 2/5 | 2/5 | 411 | 3/3 | 90 | 4/4 | 203 | 1 | 0.04 |
+| 12, perfect labels | 5/5 | 5/5 | 433 | 3/3 | 90 | 4/4 | 238 | 1 | 0.04 |
+| 13, perfect labels | 5/5 | 5/5 | 453 | 3/3 | 90 | 4/4 | 207 | 2 | 0.08 |
+| 11, rules | 1/5 | 1/5 | 627 | 3/3 | 90 | 4/4 | 203 | 21 (18 overdue) | 0.82 |
+| 12, rules | 4/5 | 4/5 | 459 | 3/3 | 90 | 4/4 | 238 | 10 (8 overdue) | 0.41 |
+| 13, rules | 3/5 | 3/5 | 351 | 3/3 | 90 | 4/4 | 207 | 12 (8 overdue) | 0.47 |
+
+"Perfect labels" feeds the detector the answer key's own matches, which shows the detector alone. Seeds 11–13 have rules-only matches, since Claude was run only on seed 7. Running it on the other seeds would take about 1,300 more API calls, and I haven't run them.
+
+**How to read it:**
+
+- **Delay:** days from the event's onset to the warning. For an early failure, onset is the first failing repair. For a deferred replacement, it's 31 December of the planned year. For a cost overrun, it's 1 January of the planned year, so that delay includes waiting for the project to be billed.
+- **Before the emergency replacement:** in every early failure the warning caught, it fired months before the part had to be replaced in an emergency (174–613 days on seed 7 with rules + Claude). That lead time is when a board can still plan the replacement instead of paying for an emergency.
+- **False alarms** are any warning not credited to a planted event.
+
+**What the numbers say:**
+
+- **Deferred work and overruns are easy once the replacement invoices are matched.** All 28 across the four seeds were caught, with every kind of label: deferred work 90 days after the year ends, overruns on the invoice that crossed the contingency.
+- **Early failures are slower.** With perfect labels the detector caught 17 of 20, about 14–16 months after onset (median 411–479 days by seed). The 3 misses on seed 11 failed fast: 3–5 failing repairs before an emergency replacement 17–18 months after onset. That's too few jobs for this threshold. Lowering it is a real trade-off, as the table below shows, so I kept the threshold chosen in advance.
+- **Most false alarms come from matching, not the detector.** Every overdue false alarm on seeds 7 and 11 is a real replacement whose invoices were left unsure or matched to a look-alike part in another building. A boiler replaced in Bldg A but matched to Bldg B shows up twice: A looks overdue and B looks over budget. Claude's answers cut seed 7's false alarms from 12 to 4. The leftover unsure replacement invoices are what the review queue (day 6) should surface next to each overdue warning.
+- **One early failure was missed because of the matching labels.** It's the playground on seed 7, which the detector catches with perfect labels. Its failing repairs are the "mulch top-up" invoices that Claude called routine grounds upkeep (see day 4).
+
+**Threshold trade-off** (pooled held-out seeds 11–13, 15 early failures). The default of 6 was not picked from this table.
+
+| Threshold | Perfect labels: caught | Median delay | False failing-early warnings | Rules: caught | Median delay | False failing-early warnings |
+| --- | --- | --- | --- | --- | --- | --- |
+| 4 | 13/15 | 216 | 41 | 10/15 | 198 | 48 |
+| 5 | 13/15 | 392 | 15 | 9/15 | 433 | 18 |
+| 6 (default) | 12/15 | 453 | 4 | 8/15 | 484 | 7 |
+
+**Caveats:**
+
+- The planted early-failure signal is about 10–20 times the normal repair rate, so high detection with perfect labels is expected by construction.
+- There are 12 in-scope events per seed, so each rate rests on very few cases.
+- The 15% contingency and the 90-day grace are round numbers I chose, not fitted. The generator's normal projects run up to 12% over the plan and overruns at least 17% over, so the 15% contingency sits in a gap the generator itself creates.
+
+**Reproduce** (no API calls; Claude's matches come from the cache):
+
+```bash
+cd backend && ../.venv/bin/python -m app.cli warn --method combined
+```
+
+```bash
+cd backend && ../.venv/bin/python -m app.cli score-warnings --answer-key data/synth/answer_key.json --method combined
+```
+
+```bash
+cd backend && ../.venv/bin/python -m app.cli eval-warnings --seeds 11 12 13 --labels rules
+```

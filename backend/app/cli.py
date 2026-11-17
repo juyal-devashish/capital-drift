@@ -104,6 +104,52 @@ def cmd_match_llm(args) -> None:
     print(json.dumps(report, indent=2))
 
 
+def cmd_warn(args) -> None:
+    """Watch every component's matched spend against its plan and store the warnings."""
+    from app.services.warnings import run_warnings
+
+    with session_scope() as db:
+        report = run_warnings(db, args.method)
+    print(json.dumps(report, indent=2))
+
+
+def cmd_score_warnings(args) -> None:
+    """Score stored warnings against a synthetic answer key (offline evaluation only)."""
+    from app.db.models import Invoice, ReserveComponent
+    from app.domain.warnings import watch_window
+    from app.evals.warnings import component_years, score_warnings
+    from app.services.warnings import stored_warnings
+
+    key = json.loads(Path(args.answer_key).read_text(encoding="utf-8"))
+    with session_scope() as db:
+        invoices = list(db.scalars(select(Invoice)))
+        n_components = len(list(db.scalars(select(ReserveComponent))))
+        warnings = stored_warnings(db, args.method)
+    start, through = watch_window(invoices)
+    report = score_warnings(
+        warnings,
+        key["events"],
+        key["invoices"],
+        {i.id: i.invoice_date for i in invoices},
+        component_years(n_components, start, through),
+    )
+    _emit(report, args.out)
+
+
+def cmd_eval_warnings(args) -> None:
+    """Generate, label, watch and score whole portfolios in memory. Touches no database; no API calls."""
+    from app.evals.warnings import evaluate_seed
+
+    _emit([evaluate_seed(seed, args.labels) for seed in args.seeds], args.out)
+
+
+def _emit(report, out: str | None) -> None:
+    if out:
+        Path(out).parent.mkdir(parents=True, exist_ok=True)
+        Path(out).write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print(json.dumps(report, indent=2))
+
+
 def _run_set(set_id: str) -> tuple[str, str, float, str]:
     from app.agents.runner import get_run_manager
 
@@ -232,6 +278,16 @@ def main() -> None:
     sm.add_argument("--answer-key", required=True)
     sm.add_argument("--method", default="rules", choices=["rules", "llm", "combined"])
     sm.add_argument("--out", help="also write the report to this JSON file")
+    w = sub.add_parser("warn", help="raise repair-or-replace warnings from stored matches")
+    w.add_argument("--method", default="combined", choices=["rules", "combined"])
+    sw = sub.add_parser("score-warnings", help="score stored warnings against a synthetic answer key")
+    sw.add_argument("--answer-key", required=True)
+    sw.add_argument("--method", default="combined", choices=["rules", "combined"])
+    sw.add_argument("--out", help="also write the report to this JSON file")
+    ew = sub.add_parser("eval-warnings", help="score warnings on in-memory portfolios (no database, no API calls)")
+    ew.add_argument("--seeds", type=int, nargs="+", default=[11, 12, 13])
+    ew.add_argument("--labels", default="rules", choices=["rules", "truth"])
+    ew.add_argument("--out", help="also write the report to this JSON file")
     args = p.parse_args()
 
     upgrade()  # every command works against an up-to-date schema
@@ -252,6 +308,12 @@ def main() -> None:
         cmd_match_llm(args)
     elif args.cmd == "score-matches":
         cmd_score_matches(args)
+    elif args.cmd == "warn":
+        cmd_warn(args)
+    elif args.cmd == "score-warnings":
+        cmd_score_warnings(args)
+    elif args.cmd == "eval-warnings":
+        cmd_eval_warnings(args)
 
 
 if __name__ == "__main__":
