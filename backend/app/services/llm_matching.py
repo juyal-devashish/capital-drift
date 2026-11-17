@@ -115,6 +115,15 @@ def _report(run_id: str, summary: LLMRunSummary, n_matches: int, settings) -> di
     }
 
 
+def reviewed_matches(db: Session) -> list[MatchResult]:
+    """What the review queue works from: a property manager's answer, else ``combined_matches``.
+
+    Kept apart from ``combined`` so the day 4-5 numbers (rules + Claude) still reproduce after reviews.
+    """
+    reviewer = {m.invoice_id: m for m in stored_matches(db, "reviewer")}
+    return [reviewer.get(m.invoice_id, m) for m in combined_matches(db)]
+
+
 def combined_matches(db: Session) -> list[MatchResult]:
     """Rules first; where the rules were unsure and Claude gave a usable answer, Claude's answer."""
     llm = {m.invoice_id: m for m in stored_matches(db, "llm")}

@@ -29,6 +29,10 @@ llm_attempts           every invoice sent to Claude (or held back by the budget)
                        raw answer, token counts and errors; failures are kept, never dropped
 spend_warnings         repair-or-replace warnings raised by watching each component's matched spend
                        against its plan (failing early, overdue, over budget), per matching method
+review_items           the capital review queue: one row per warning or unsure invoice, keyed so it
+                       survives reruns; property managers decide, reruns clear what no longer applies
+review_actions         append-only log of every queue decision and invoice assignment, with the match
+                       before and after; automatic changes from reruns are logged as user "system"
 
 The answer key for synthetic data (true component per invoice, planted problems) is never stored
 in these tables; see app/synth.
@@ -416,4 +420,46 @@ class SpendWarningRecord(Base):
     message: Mapped[str] = mapped_column(Text)
     numbers: Mapped[dict] = mapped_column(JSON, default=dict)
     invoice_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class ReviewItem(Base):
+    """One thing in the capital review queue. The id is a stable key, so decisions survive reruns.
+
+    Warnings: ``W:<kind>:<component>:<cycle year>``. Unsure invoices: ``I:<invoice id>``.
+    """
+
+    __tablename__ = "review_items"
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(12))  # warning | invoice
+    warning_kind: Mapped[str | None] = mapped_column(String(20))  # failing_early | overdue | over_budget
+    association_id: Mapped[str] = mapped_column(ForeignKey("associations.id", ondelete="CASCADE"), index=True)
+    component_id: Mapped[str | None] = mapped_column(ForeignKey("reserve_components.id", ondelete="CASCADE"))
+    invoice_id: Mapped[str | None] = mapped_column(ForeignKey("invoices.id", ondelete="CASCADE"))
+    title: Mapped[str] = mapped_column(String(200))
+    detail: Mapped[str] = mapped_column(Text)
+    amount_at_stake: Mapped[float] = mapped_column(Float)
+    opened_on: Mapped[date] = mapped_column(Date)  # when the warning fired, or the invoice date
+    status: Mapped[str] = mapped_column(String(20), index=True)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
+class ReviewAction(Base):
+    """Append-only audit log for the capital review queue. Rows are never updated or deleted."""
+
+    __tablename__ = "review_actions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    item_id: Mapped[str] = mapped_column(ForeignKey("review_items.id", ondelete="CASCADE"), index=True)
+    action: Mapped[str] = mapped_column(String(20))  # confirm | dismiss | reopen | comment | assign | rerun
+    comment: Mapped[str | None] = mapped_column(Text)
+    status_before: Mapped[str | None] = mapped_column(String(20))
+    status_after: Mapped[str] = mapped_column(String(20))
+    match_before: Mapped[dict | None] = mapped_column(JSON)
+    match_after: Mapped[dict | None] = mapped_column(JSON)
+    username: Mapped[str] = mapped_column(String(80))
+    role: Mapped[str] = mapped_column(String(20))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

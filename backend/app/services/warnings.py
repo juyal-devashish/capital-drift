@@ -7,12 +7,20 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Association, Invoice, ReserveComponent, SpendWarningRecord
 from app.domain.warnings import SpendWarning, spend_from_matches, watch_spend, watch_window
-from app.services.llm_matching import combined_matches, stored_matches
+from app.services.llm_matching import combined_matches, reviewed_matches, stored_matches
 
 
 def run_warnings(db: Session, method: str = "combined") -> dict:
-    """Replay the history with ``method``'s matches (rules or combined), replacing that method's warnings."""
-    matches = combined_matches(db) if method == "combined" else stored_matches(db, method)
+    """Replay the history with ``method``'s matches, replacing that method's warnings.
+
+    ``rules``, ``combined`` (rules + Claude) or ``reviewed`` (property managers' answers first).
+    """
+    if method == "reviewed":
+        matches = reviewed_matches(db)
+    elif method == "combined":
+        matches = combined_matches(db)
+    else:
+        matches = stored_matches(db, method)
     invoices = list(db.scalars(select(Invoice)))
     if not invoices:
         raise RuntimeError("no invoices loaded; run `synth` first")

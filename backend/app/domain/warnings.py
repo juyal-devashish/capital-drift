@@ -44,6 +44,7 @@ class WatchedComponent(Protocol):
 
 class InvoiceDated(Protocol):
     id: str
+    association_id: str
     invoice_date: date
     amount: float
 
@@ -360,7 +361,12 @@ def _over_budget(st: _State, p: _Project, on: date) -> SpendWarning:
         on,
         f"{_where(c)}: replacement {over:.0%} over plan",
         message,
-        {"project_total": round(p.total, 2), "plan_cost": round(p.plan_cost, 2), "over_share": round(over, 4)},
+        {
+            "project_start": p.start.isoformat(),
+            "project_total": round(p.total, 2),
+            "plan_cost": round(p.plan_cost, 2),
+            "over_share": round(over, 4),
+        },
         list(p.invoice_ids),
     )
 
@@ -387,3 +393,37 @@ def in_control_years(
         if cusum >= s.cusum_threshold:
             alarms, cusum = alarms + 1, 0.0
     return years / max(alarms, 1)
+
+
+def overdue_candidates(
+    warning: SpendWarning,
+    components: Sequence[WatchedComponent],
+    associations: Sequence[AssociationLike],
+    invoices: Iterable[InvoiceDated],
+    matches: Iterable[MatchResult],
+    capital_share: float = 0.15,
+) -> list[str]:
+    """Invoices that might be the replacement an overdue warning says is missing, for a reviewer to check.
+
+    Rule (fixed before measuring it): same association; dated from 1 January of the year before the
+    planned year through the day the warning fired; at least ``capital_share`` of the part's inflated
+    cost; and either left unsure, or matched to another part with the same name (a look-alike in
+    another building). Oldest first.
+    """
+    comps = {c.id: c for c in components}
+    part = comps[warning.component_id]
+    assoc = next(a for a in associations if a.id == part.association_id)
+    label = {m.invoice_id: m for m in matches}
+    since = date(warning.numbers["planned_year"] - 1, 1, 1)
+    out = []
+    for inv in sorted(invoices, key=lambda i: (i.invoice_date, i.id)):
+        if inv.association_id != part.association_id or not (since <= inv.invoice_date <= warning.fired_on):
+            continue
+        if inv.amount < capital_share * inflated_cost(part, assoc, inv.invoice_date.year):
+            continue
+        m = label.get(inv.id)
+        unsure = m is None or m.label == "unsure"
+        lookalike = bool(m and m.component_id and m.component_id != part.id and comps[m.component_id].name == part.name)
+        if unsure or lookalike:
+            out.append(inv.id)
+    return out

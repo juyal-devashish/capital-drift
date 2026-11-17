@@ -16,7 +16,16 @@ from pathlib import Path
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
-from app.db.models import Association, Invoice, InvoiceMatch, Portfolio, ReserveComponent, SpendWarningRecord
+from app.db.models import (
+    Association,
+    Invoice,
+    InvoiceMatch,
+    Portfolio,
+    ReserveComponent,
+    ReviewAction,
+    ReviewItem,
+    SpendWarningRecord,
+)
 from app.parsers.reserve_study_pdf import parse_reserve_study
 from app.synth.generator import (
     AnswerKey,
@@ -133,7 +142,16 @@ def load_dataset(db: Session, data_dir: Path, studies: str = "pdf") -> dict[str,
         if not (data_dir / name).is_file():
             raise FileNotFoundError(f"{data_dir / name} is missing")
 
-    for model in (SpendWarningRecord, InvoiceMatch, Invoice, ReserveComponent, Association, Portfolio):
+    for model in (
+        ReviewAction,
+        ReviewItem,
+        SpendWarningRecord,
+        InvoiceMatch,
+        Invoice,
+        ReserveComponent,
+        Association,
+        Portfolio,
+    ):
         db.execute(delete(model))
 
     counts: dict[str, int] = {}
