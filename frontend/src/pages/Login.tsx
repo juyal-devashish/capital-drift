@@ -58,7 +58,7 @@ export function Login() {
         <ol className="how-it-works">
           <li>
             <span>
-              <strong>Place every invoice.</strong> Rules first, then Claude for the ones the rules can't place.
+              <strong>Place each invoice against the plan.</strong> Rules first, then Claude; what neither can place goes to a person.
             </span>
           </li>
           <li>

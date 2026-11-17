@@ -79,6 +79,8 @@ def build(db: Session, answer_key: dict) -> dict:
             }
         )
 
+    if not stored_warnings(db, "combined"):
+        raise ValueError("no stored combined warnings; run `warn --method combined` first")
     start, through = watch_window(invoices)
     n_comp = db.scalar(select(func.count()).select_from(ReserveComponent))
     combined_warn = score_warnings(

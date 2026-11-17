@@ -79,7 +79,7 @@ cd backend && ../.venv/bin/python -m app.cli score-warnings --answer-key data/sy
 
 Review queue: `sync-queue` reruns the warnings on reviewed matches and updates the queue. Property managers work it through `/api/capital/queue` (decisions) and `/api/capital/invoices/{id}/assignment` (which part an invoice was for). Board members can only read it. The demo tokens are `board-token`, `manager-token` and `admin-token`. `eval-review` measures how much review clears the false alarms (results in [docs/results.md](docs/results.md)).
 
-**Screens.** Load seed 7, match it, raise warnings and build the queue (`synth`, `match`, `match-llm --cached-only` if you have the cache, `warn`, `sync-queue`). Then start the API and the UI and sign in as one of the demo users:
+**Screens.** Load seed 7, match it, raise warnings and build the queue (`synth`, `match`, `match-llm --cached-only` if you have the cache, `warn`, `sync-queue`). Without Claude's cached answers (they stay on the machine that ran them), the queue is rules-only: on seed 7 that's 442 unplaced invoices and 23 warnings, against 175 and 15 with them. Then start the API and the UI and sign in as one of the demo users:
 
 - **Bea (board member):** reads only. She sees which associations are red and why.
 - **Max (property manager):** works the review queue.

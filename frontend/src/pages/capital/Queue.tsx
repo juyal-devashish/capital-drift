@@ -67,7 +67,7 @@ export function CapitalQueue() {
           <h1>Review queue</h1>
           <p className="lede">
             {can(...CAPITAL_DECIDE_ROLES)
-              ? "Start with the past-due warnings: each lists the invoices that may be the missing replacement. Placing them correctly clears most false alarms."
+              ? "Start with the past-due warnings: each lists the invoices that may be the missing replacement. On synthetic data, placing those correctly cleared most false alarms."
               : "What the property managers are checking. Your role can read every item and its history."}
           </p>
         </div>

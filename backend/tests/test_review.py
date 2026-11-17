@@ -1,5 +1,7 @@
 """The capital review queue: sync with reruns, decisions, reviewer matches and the audit log."""
 
+from datetime import date
+
 import pytest
 from sqlalchemy import select
 
@@ -208,3 +210,27 @@ def test_simulated_review_of_overdue_candidates_clears_false_alarms_without_losi
     assert r["before"]["false_alarms"] == 10 and r["after"]["false_alarms"] <= 2
     assert "overdue" not in r["after"]["false_alarms_by_kind"]
     assert r["invoices_reviewed"] <= 13
+
+
+def test_queue_lists_past_due_warnings_before_other_kinds(api):
+    from app.db.models import ReviewItem
+    from app.db.session import session_scope
+
+    with session_scope() as db:
+        db.add(
+            ReviewItem(
+                id="W:failing_early:G-BOIL-B:2019",
+                kind="warning",
+                warning_kind="failing_early",
+                association_id="G",
+                component_id="G-BOIL-B",
+                title="Central boiler plant (Bldg B): failing early",
+                detail="",
+                amount_at_stake=1_000_000.0,
+                opened_on=date(2018, 1, 31),
+                status="open",
+                payload={},
+            )
+        )
+    ids = [i["id"] for i in api.get("/api/capital/queue", params={"kind": "warning"}, headers=BOARD).json()["items"]]
+    assert ids == ["W:overdue:G-BOIL-A:2019", "W:failing_early:G-BOIL-B:2019"], "past due first, despite less money"
