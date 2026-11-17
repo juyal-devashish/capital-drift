@@ -7,7 +7,7 @@ A capital-planning demo for homeowner associations and property-management portf
 1. **Matches each invoice to a reserve component**, using rules first and an LLM for the rest, with a confidence score and a link back to the source invoice.
 2. **Watches each component's spend for drift** with a sequential change-detection test, and flags components that are running ahead of plan, such as a boiler failing years early.
 3. **Sends low-confidence matches and drift alerts to a review queue**, where every decision goes into an audit trail.
-4. **Forecasts the reserve balance**, with uncertainty bands, so a board can see which communities run short first.
+4. **Forecasts the reserve balance** for ten years, so a board can see which communities run short first. The band around it reflects replacement cost alone and is too narrow (see [docs/results.md](docs/results.md)).
 
 All data is synthetic.
 

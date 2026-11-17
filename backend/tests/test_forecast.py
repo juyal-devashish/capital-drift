@@ -87,8 +87,8 @@ def test_same_inputs_same_forecast():
     assert forecast_association(*args) == forecast_association(*args)
 
 
-def test_backtest_regression_floor_on_held_out_seed_12():
-    """Measured 2026-11-17 (docs/results.md). Never loosen it."""
+def test_backtest_regression_floor_on_seed_12():
+    """Seed 12 was a development seed for the forecast. Measured 2026-11-17 (docs/results.md). Never loosen it."""
     from app.evals.forecast import backtest_seed
 
     r = backtest_seed(12, "rules", contributions="flat")

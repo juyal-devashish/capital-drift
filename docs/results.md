@@ -226,7 +226,7 @@ The board lists who runs short first. Each association page charts the balance s
 - **Flat:** the study's figure every year.
 - **Rising:** that figure grown at the study's inflation rate.
 
-The synthetic study gives one contribution figure and an inflation rate for costs. CAI's reserve study standards only require a study to disclose the interest and inflation rates it assumes, "zero or otherwise". The reserve is assumed to earn no interest. A balance below zero is a modelled shortfall: work that would need other money, or would be put off.
+The synthetic study gives one contribution figure and an inflation rate for costs. One sentence I read in [CAI's explanation of its reserve study standards](https://www.caionline.org/getmedia/7b5f1422-d10b-4cad-87b7-d1339c0f0ee8/explanation-of-reserve-study-standards-2025-final.pdf) requires a study to disclose the interest and inflation values it uses, "zero or otherwise". I haven't read the standards themselves. The reserve is assumed to earn no interest. A balance below zero is a modelled shortfall: work that would need other money, or would be put off.
 
 **Backtest.** The forecast runs from the end of 2020 using only invoices up to then (rules-only matches), and is compared with the balances that actually followed in 2021–2025. Those actual balances use true replacement spend and the same contribution rule. The scoring rules are in `backend/app/evals/forecast.py`.
 
@@ -242,10 +242,14 @@ The baseline is the plain study schedule: every planned replacement on time, at 
 **What it shows:**
 
 - **It finds more of the associations that run short than the plain schedule does,** in both contribution modes and on the fresh seeds, at the cost of a few more false calls.
-- **The misses are emergencies nobody could see coming.** On seeds 7 and 11–13 with perfect labels, every miss was an early failure that hadn't shown by 2020.
-- **Most false calls are replacements that were planned but never done.** That was 4 of the 7 on those seeds. There the forecast's "short if the work is done" is right, and the work wasn't done.
+- **The misses are early failures without a warning by 2020.** On seeds 7 and 11–13 with perfect labels, all three misses were early failures that hadn't raised a warning by the end of 2020. Two had started failing in 2019–20.
+  - One of them, A09's siding on seed 11, already had its replacement deposit paid in November 2020.
+  - The forecast ignores the unpaid balance of a project already in progress. That's a known limit, left unfixed so the fresh-seed numbers stay clean.
+- **Most false calls are replacements that were planned but never done.** That was 4 of the 6 on those seeds. There the forecast's "short if the work is done" is right, and the work wasn't done.
 - **The band is too narrow and isn't an 80% interval.** It reflects spread in replacement cost only. Early failures and deferrals aren't in it, so it held the actual balance only 27–64% of the time. The page says so.
-- **The forecast inherits matching errors.** A replacement left unplaced makes its part look past due, so the forecast charges it again next year. Ridley Creek's Bldg A elevator on seed 7 is an example: its replacement invoices are still in the review queue.
+- **The forecast inherits matching errors, in two ways:**
+  - **An unplaced replacement** isn't subtracted from the balance, so today's balance is overstated, and the part looks past due, so its cost lands in 2026 instead. Ridley Creek's Bldg A elevator on seed 7 is an example. Its deposit was placed, but its progress and final invoices ($127,741) are still in the review queue. Placed correctly, its 2025 balance would be about $101k below zero, not the $26,444 shown, and the elevator would no longer be charged again in 2026.
+  - **A replacement matched to a look-alike part** is subtracted once, but the real part still looks past due. That cost is counted twice.
 
 **On the seed-7 demo:** 7 of 20 associations are already short at the end of 2025 with flat contributions, and 6 with rising. Within ten years, 19 are short in at least half the runs with flat contributions, and 15 with rising. The generator funds associations at 30–80% of the full amount and sets contributions at 60–110% of need, so heavy shortfalls are partly built into the synthetic data.
 

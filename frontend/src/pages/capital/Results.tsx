@@ -202,8 +202,8 @@ export function CapitalResults() {
             </table>
           </div>
           <p className="quiet" style={{ margin: 0 }}>
-            Checked on seeds 7 and 11–13 with perfect labels: every missed call was an early failure that hadn't shown by 2020, and 4 of the 7
-            false calls were replacements planned but never done. The band reflects replacement cost alone, so it is too narrow.
+            Checked on seeds 7 and 11–13 with perfect labels: every missed call was an early failure with no warning by the end of 2020, and 4 of
+            the 6 false calls were replacements planned but never done. The band reflects replacement cost alone, so it is too narrow.
           </p>
         </section>
 
