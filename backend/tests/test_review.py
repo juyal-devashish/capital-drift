@@ -166,6 +166,8 @@ def test_decisions_are_validated(boilers):
             decide(db, "W:overdue:G-BOIL-A:2019", "dismiss", "  ", MAX)
         with pytest.raises(ReviewError, match="for warnings"):
             decide(db, "I:I-ODD", "confirm", None, MAX)
+        with pytest.raises(ReviewError, match="assign it again"):
+            decide(db, "I:I-ODD", "reopen", None, MAX)
         with pytest.raises(ReviewError, match="unknown action"):
             decide(db, "I:I-ODD", "approve", None, MAX)
         with pytest.raises(ReviewError, match="not a component of G"):
@@ -225,7 +227,15 @@ def test_board_members_read_but_cannot_decide(api):
         == 403
     )
     assert api.post("/api/capital/queue/sync", headers=BOARD).status_code == 403
-    assert api.get("/api/capital/queue", headers=ANALYST).status_code == 403, "Tick & Tie roles don't see it"
+    auditor = {"Authorization": "Bearer auditor-token"}
+    assert api.get("/api/capital/queue/I:I-ODD", headers=auditor).status_code == 200
+    assert (
+        api.post(
+            "/api/capital/queue/I:I-ODD/decisions", json={"action": "comment", "comment": "x"}, headers=auditor
+        ).status_code
+        == 403
+    )
+    assert api.get("/api/capital/queue", headers=ANALYST).status_code == 403, "analysts work Tick & Tie's queue"
     assert api.get("/api/capital/queue").status_code == 401
 
 

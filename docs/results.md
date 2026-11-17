@@ -165,7 +165,7 @@ cd backend && ../.venv/bin/python -m app.cli eval-warnings --seeds 11 12 13 --la
 
 Warnings and unsure invoices land in one review queue. Property managers (and admins) confirm or dismiss a warning, or say which part an invoice was for. Board members and auditors can only read. Every action goes to an append-only log with the user, the role and the match before and after. Changes made automatically by a rerun are logged under the user "system".
 
-An assignment reruns the warnings straight away. A warning that no longer applies is marked resolved-by-rerun, and the response says what changed. A warning a person has confirmed or dismissed is never changed by a rerun.
+An assignment reruns the warnings straight away. A warning that no longer applies is marked resolved-by-rerun, and the response says what changed. A warning a person has confirmed or dismissed is never changed by a rerun. A full sync of seed 7's queue takes about a second.
 
 On seed 7 the queue starts with 15 warnings and 175 unsure invoices. Next to each overdue warning it lists **candidate invoices**: invoices that might be the missing replacement. That rule was written before it was measured:
 
@@ -188,7 +188,11 @@ On seed 7 the queue starts with 15 warnings and 175 unsure invoices. Next to eac
 
 - **Looking only at the candidates beside each overdue warning cleared every false overdue and over-budget warning**, on every seed. No planted problem stopped being caught. The cost was 8 invoices on seed 7 with Claude's matches, and 13–46 per seed with rules alone, out of roughly 400–510 unsure invoices.
 - The over-budget false alarms clear as a side effect. A boiler replaced in Bldg A but matched to Bldg B produces two warnings, and fixing the match removes both.
-- **What's left is failing-early false alarms (1–4 per seed).** Reviewing invoices can't clear them, because the detector raised them on correctly matched repairs. A property manager dismisses them, with a comment the log keeps.
+- **What's left is failing-early false alarms (1–4 per seed), and most of them come from matching too, just less directly.**
+  - 7 of the 11 across these seeds don't fire with perfect labels, even though every repair behind them is matched to the right part.
+  - The cause is the learned baseline. The rules give a part to only 933 of seed 7's 1,366 repairs, so the "usual" repair rate comes out about a third too low, and ordinary parts look busy.
+  - Working the unsure invoices in the queue, not just the overdue candidates, should raise the baseline and clear some of them. That hasn't been measured.
+  - The other 4 also fire with perfect labels. Those are the detector's own false alarms, which a property manager dismisses with a comment the log keeps.
 - **Clean held-out seeds are 12 and 13.** Seed 11's false alarms were inspected on day 5, before the candidate rule was written, so it isn't fully held out.
 
 The day 4–5 numbers still reproduce. A reviewer's answers go into a separate "reviewed" set of matches, used only by the queue and its warnings. "Combined" stays rules + Claude.

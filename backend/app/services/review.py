@@ -140,8 +140,8 @@ def decide(db: Session, item_id: str, action: str, comment: str | None, user: Us
         raise ReviewError(f"unknown action {action!r}")
     if action in ("dismiss", "comment") and not (comment or "").strip():
         raise ReviewError(f"'{action}' needs a comment saying why")
-    if action in ("confirm", "dismiss") and item.kind != "warning":
-        raise ReviewError("confirm and dismiss are for warnings; assign an invoice to a part instead")
+    if action in ("confirm", "dismiss", "reopen") and item.kind != "warning":
+        raise ReviewError(f"'{action}' is for warnings; to change an invoice, assign it again")
     before = item.status
     if _ACTIONS[action]:
         item.status = _ACTIONS[action]
