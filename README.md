@@ -13,7 +13,15 @@ All data is synthetic.
 
 ## Status
 
-**Scaffold only.** The code is still Tick & Tie's financial-reconciliation app; nothing FiXA-specific is built yet. [docs/plan.md](docs/plan.md) lists which parts stay, which get replaced and what's new.
+Week 1 is built (days 1–8 in [docs/plan.md](docs/plan.md)), all on synthetic data:
+
+- **Data:** a generated portfolio of 20 associations, with reserve studies as PDFs and 10 years of invoices.
+- **Matching:** every invoice placed against a part of its reserve study, rules first and then Claude.
+- **Warnings:** repair-or-replace warnings when spending drifts from the plan.
+- **Review queue:** property managers decide each warning, and every decision is logged.
+- **Screens:** a board view, the manager's queue, a page per association and a results page.
+
+Measured results and their caveats are in [docs/results.md](docs/results.md). Tick & Tie's financial QA screens are still here for its own roles.
 
 Tick & Tie's original README, including its results on its own synthetic corpus, is in [docs/tick-and-tie-README.md](docs/tick-and-tie-README.md). Those numbers belong to Tick & Tie and are not results for this project.
 
@@ -70,5 +78,13 @@ cd backend && ../.venv/bin/python -m app.cli score-warnings --answer-key data/sy
 `warn` replays the matched spend month by month and stores warnings: a part failing early, a replacement past due, or a replacement over budget. `eval-warnings --seeds 11 12 13` scores whole portfolios in memory without touching the database. Results are in [docs/results.md](docs/results.md).
 
 Review queue: `sync-queue` reruns the warnings on reviewed matches and updates the queue. Property managers work it through `/api/capital/queue` (decisions) and `/api/capital/invoices/{id}/assignment` (which part an invoice was for). Board members can only read it. The demo tokens are `board-token`, `manager-token` and `admin-token`. `eval-review` measures how much review clears the false alarms (results in [docs/results.md](docs/results.md)).
+
+**Screens.** Load seed 7, match it, raise warnings and build the queue (`synth`, `match`, `match-llm --cached-only` if you have the cache, `warn`, `sync-queue`). Then start the API and the UI and sign in as one of the demo users:
+
+- **Bea (board member):** reads only. She sees which associations are red and why.
+- **Max (property manager):** works the review queue.
+- **Adam (admin):** sees both the capital screens and Tick & Tie's screens.
+
+`results --answer-key data/synth/answer_key.json` rewrites `backend/results/capital_results.json`, the file the results page shows.
 
 `make test` runs the backend tests and the frontend typecheck. `make dev-backend` and `make dev-frontend` start the API on :8000 and the UI on :5173. The `seed` and `eval-*` targets need Tick & Tie's test corpus (`../finqa-testdata`), which isn't included. They'll be replaced by the synthetic generator described in the plan.

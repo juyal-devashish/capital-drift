@@ -42,6 +42,13 @@ Three changes come from FiXA's own site (fixai.tech, read on 2026-11-16). Its HO
 
 ## Settled
 
+- Days 7–8 done on 2026-11-17:
+  - **Board view:** read-only. Every association is red, amber or green, with its reasons in plain words, and it says whether a manager has checked each warning. The colour rule is stated on the page.
+  - **Manager queue:** past-due warnings come first, with their candidate invoices. Placing one reruns the warnings and shows what cleared.
+  - **Association page:** plan against actual per year, with its warnings and parts.
+  - **Results page:** shows an offline results file written from the answer key, which the app itself never loads.
+  - **Roles:** board members and property managers see only the capital screens, and the brand reads "Capital Drift, built on Tick & Tie".
+  - **Browser check:** done as each role on a copy of the seed 7 data. Placing contract 6896's two invoices on the Bldg A boiler cleared both its false past-due warning and the Bldg B over-budget warning.
 - Day 6 done on 2026-11-17: the review queue (warnings and unsure invoices) with board member (read-only), property manager and admin roles, decisions that survive reruns, and an append-only log. Simulated review of only the invoices listed beside overdue warnings cleared every false overdue and over-budget warning on all seeds without losing a detection: on held-out seed 12, 13 invoices took false alarms from 10 to 2. Kept beside Tick & Tie's exception queue rather than inside it, since that one is tied to document sets. The new roles sit alongside Tick & Tie's analyst, controller and auditor roles instead of replacing them, so its financial QA screens keep working. Details in [results.md](results.md).
 - Day 5 done on 2026-11-17: repair-or-replace warnings (failing early, overdue, over budget) replayed month by month with no lookahead. On held-out seeds with perfect labels, they caught all deferred and over-budget replacements and 12 of 15 early failures, each before the emergency replacement, about 14–15 months after onset. Rules-only matching adds false overdue warnings where replacement invoices stay unsure, which Claude cuts on seed 7 from 12 false alarms to 4. Details in [results.md](results.md).
 - Day 4 done on 2026-11-16: Claude Opus 5.5 answers the invoices the rules leave unsure. On seed 7, rules + Claude reach 93.3% component accuracy (rules alone 86.7%) and catch all 80 wrong-fund invoices, for $1.22 of API calls. Details in [results.md](results.md).
