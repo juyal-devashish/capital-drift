@@ -1,1 +1,1 @@
-"""Application services: ingestion, rule settings, evidence rendering, corpus seeding."""
+"""Application services: run the domain logic over the database and store the results."""

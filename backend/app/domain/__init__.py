@@ -1,4 +1,2 @@
-"""
-Pure domain logic (no I/O): metric vocabulary, period and unit normalisation, reconciliation rules.
-Everything here is deterministic and unit-tested; agents and parsers build on it.
-"""
+"""Pure domain logic (no I/O): invoice matching, repair-or-replace warnings, the reserve forecast and
+the board view. Deterministic and unit-tested; nothing here imports the synthetic-data generator."""

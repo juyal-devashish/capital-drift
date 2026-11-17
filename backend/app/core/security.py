@@ -16,14 +16,9 @@ from app.core.config import get_settings
 
 
 class Role(StrEnum):
-    """Roles from the BRD stakeholder table, plus the capital-planning roles (Capital Drift Monitor)."""
-
-    BOARD_MEMBER = "board_member"  # capital planning: reads warnings and the queue, decides nothing
-    PROPERTY_MANAGER = "property_manager"  # capital planning: works the review queue and records decisions
-    ANALYST = "analyst"  # reviews the exception queue and records decisions
-    CONTROLLER = "controller"  # oversight: summaries, can also decide
-    AUDITOR = "auditor"  # read-only access to everything, including the audit trail
-    ADMIN = "admin"  # uploads documents, changes thresholds, manages runs
+    BOARD_MEMBER = "board_member"  # reads the board, the queue and the forecast; decides nothing
+    PROPERTY_MANAGER = "property_manager"  # works the review queue and records decisions
+    ADMIN = "admin"  # everything a property manager can do, plus a full rerun of the queue
 
 
 @dataclass(frozen=True)
@@ -34,15 +29,8 @@ class User:
     role: Role
 
 
-# Permission groups used by the routers. Keeping them here makes the access policy reviewable
-# in one place instead of being scattered across endpoints.
-READ_ROLES = (Role.ANALYST, Role.CONTROLLER, Role.AUDITOR, Role.ADMIN)
-REVIEW_ROLES = (Role.ANALYST, Role.CONTROLLER, Role.ADMIN)
-RUN_ROLES = (Role.ANALYST, Role.ADMIN)
-ADMIN_ROLES = (Role.ADMIN,)
-
-# Capital planning. Board members read; property managers (and admins) decide; only admins rerun.
-CAPITAL_READ_ROLES = (Role.BOARD_MEMBER, Role.PROPERTY_MANAGER, Role.AUDITOR, Role.ADMIN)
+# Permission groups used by the routers, kept here so the access policy reads in one place.
+CAPITAL_READ_ROLES = (Role.BOARD_MEMBER, Role.PROPERTY_MANAGER, Role.ADMIN)
 CAPITAL_DECIDE_ROLES = (Role.PROPERTY_MANAGER, Role.ADMIN)
 CAPITAL_ADMIN_ROLES = (Role.ADMIN,)
 
@@ -50,7 +38,7 @@ _bearer = HTTPBearer(auto_error=False)
 
 
 def _token_table() -> dict[str, User]:
-    """Parse ``FINQA_AUTH_TOKENS`` ("token:user:role,...") into a lookup table."""
+    """Parse ``CD_AUTH_TOKENS`` ("token:user:role,...") into a lookup table."""
     table: dict[str, User] = {}
     for entry in get_settings().auth_tokens.split(","):
         entry = entry.strip()
@@ -59,11 +47,6 @@ def _token_table() -> dict[str, User]:
         token, username, role = entry.split(":")
         table[token] = User(username=username, role=Role(role))
     return table
-
-
-def configured_users() -> list[User]:
-    """Every distinct user the token table knows (tokens themselves are never exposed)."""
-    return list({u.username: u for u in _token_table().values()}.values())
 
 
 def get_current_user(creds: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> User:

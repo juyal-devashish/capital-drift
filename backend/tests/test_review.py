@@ -116,7 +116,7 @@ def test_reviews_do_not_change_the_combined_method(boilers):
 BOARD = {"Authorization": "Bearer board-token"}
 MANAGER = {"Authorization": "Bearer manager-token"}
 ADMIN = {"Authorization": "Bearer admin-token"}
-ANALYST = {"Authorization": "Bearer analyst-token"}
+UNKNOWN = {"Authorization": "Bearer not-a-token"}
 
 
 @pytest.fixture()
@@ -151,15 +151,7 @@ def test_board_members_read_but_cannot_decide(api):
         == 403
     )
     assert api.post("/api/capital/queue/sync", headers=BOARD).status_code == 403
-    auditor = {"Authorization": "Bearer auditor-token"}
-    assert api.get("/api/capital/queue/I:I-ODD", headers=auditor).status_code == 200
-    assert (
-        api.post(
-            "/api/capital/queue/I:I-ODD/decisions", json={"action": "comment", "comment": "x"}, headers=auditor
-        ).status_code
-        == 403
-    )
-    assert api.get("/api/capital/queue", headers=ANALYST).status_code == 403, "analysts work Tick & Tie's queue"
+    assert api.get("/api/capital/queue", headers=UNKNOWN).status_code == 401
     assert api.get("/api/capital/queue").status_code == 401
 
 

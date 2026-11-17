@@ -8,13 +8,13 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import func, select
 
-from app.agents.invoice_llm import (
+from app.domain.matching import MatchResult
+from app.llm.invoice_llm import (
     POLICY,
     ResponseCache,
     build_request,
     match_unsure_with_llm,
 )
-from app.domain.matching import MatchResult
 
 
 @dataclass

@@ -1,9 +1,8 @@
 """
 Read a reserve study PDF: the funding summary and the component inventory.
 
-It reuses Tick & Tie's line rebuilding (pdfplumber word boxes grouped by vertical position), so
-every component keeps its page and bounding box as evidence. The table logic is specific to
-reserve studies:
+Lines are rebuilt from pdfplumber word boxes grouped by vertical position, so every component
+keeps its page and bounding box as evidence. The table logic is specific to reserve studies:
 
 1. **Funding summary**: label lines anywhere in the report ("Starting reserve balance ...",
    "Recommended annual contribution", "Inflation rate assumed") followed by an amount.
@@ -23,10 +22,9 @@ from pathlib import Path
 
 import pdfplumber
 
-from app.parsers.pdf_parser import Word, group_lines
-
 HEADER = ("Ref", "Component", "Category", "Location", "Life", "Remaining", "Cost", "Planned")
 _COLUMN_SLACK = 3.0  # points a word may start left of its column edge and still belong to it
+_LINE_TOLERANCE = 2.5  # points: words whose tops differ by less than this are on one line
 _MONEY_RE = re.compile(r"^\$?([\d,]+(?:\.\d+)?)$")
 _PERCENT_RE = re.compile(r"^([\d.]+)%$")
 _FUNDING = {
@@ -35,6 +33,29 @@ _FUNDING = {
     "inflation_rate": re.compile(r"^Inflation rate assumed\b"),
 }
 _NO_LOCATION = {"-", "—", "n/a", ""}
+
+
+@dataclass
+class Word:
+    text: str
+    x0: float
+    x1: float
+    top: float
+    bottom: float
+
+
+def group_lines(words: list[dict]) -> list[list[Word]]:
+    """Group pdfplumber words into lines (top-to-bottom), each sorted left-to-right."""
+    ws = sorted(
+        (Word(w["text"], w["x0"], w["x1"], w["top"], w["bottom"]) for w in words), key=lambda w: (round(w.top), w.x0)
+    )
+    lines: list[list[Word]] = []
+    for w in ws:
+        if lines and abs(lines[-1][0].top - w.top) <= _LINE_TOLERANCE:
+            lines[-1].append(w)
+        else:
+            lines.append([w])
+    return [sorted(line, key=lambda w: w.x0) for line in lines]
 
 
 @dataclass

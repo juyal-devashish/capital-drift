@@ -1,22 +1,18 @@
-# Local / single-host deployment.
-#   docker compose up --build            -> UI on http://localhost:8080
-# Load the test corpus (mounted read-only at /corpus):
-#   docker compose exec backend python -m app.cli seed --corpus /corpus
+# Local, single-host deployment.
+#   docker compose up --build                                  -> UI on http://localhost:8080
+#   docker compose exec backend python -m app.cli demo         -> load the demo data (synthetic)
 services:
   backend:
     build: ./backend
     environment:
-      FINQA_DATA_DIR: /data
-      # Replace these demo tokens (or wire up SSO) before exposing the service.
-      FINQA_AUTH_TOKENS: ${FINQA_AUTH_TOKENS:-analyst-token:alice:analyst,controller-token:carol:controller,auditor-token:arun:auditor,admin-token:adam:admin,board-token:bea:board_member,manager-token:max:property_manager}
-      FINQA_LLM_MODEL: ${FINQA_LLM_MODEL:-}
-      FINQA_LOG_JSON: "true"
+      CD_DATA_DIR: /data
+      # Demo tokens. Replace them (or wire up SSO) before exposing the service anywhere.
+      CD_AUTH_TOKENS: ${CD_AUTH_TOKENS:-board-token:bea:board_member,manager-token:max:property_manager,admin-token:adam:admin}
+      CD_LOG_JSON: "true"
       # For Postgres instead of SQLite, uncomment the db service and set:
-      # FINQA_DATABASE_URL: postgresql+psycopg://finqa:finqa@db:5432/finqa
+      # CD_DATABASE_URL: postgresql+psycopg://capital_drift:capital_drift@db:5432/capital_drift
     volumes:
-      - finqa-data:/data
-      - ${CORPUS_DIR:-../finqa-testdata}:/corpus:ro
-    stop_grace_period: 30s  # lets in-flight runs pause at a checkpoint before exit
+      - app-data:/data
 
   frontend:
     build: ./frontend
@@ -26,10 +22,10 @@ services:
       - backend
 
   # db:
-  #   image: postgres:16-alpine
-  #   environment: { POSTGRES_USER: finqa, POSTGRES_PASSWORD: finqa, POSTGRES_DB: finqa }
+  #   image: postgres:17-alpine
+  #   environment: { POSTGRES_USER: capital_drift, POSTGRES_PASSWORD: capital_drift, POSTGRES_DB: capital_drift }
   #   volumes: [ "pg-data:/var/lib/postgresql/data" ]
 
 volumes:
-  finqa-data:
+  app-data:
   # pg-data:

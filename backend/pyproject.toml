@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "finqa-backend"
+name = "capital-drift-backend"
 version = "0.1.0"
-description = "Multi-agent financial QA & reconciliation platform - API and agent runtime"
+description = "Capital Drift Monitor: checks an HOA's spending against its reserve study (API, CLI and evaluation)"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",
@@ -15,23 +15,15 @@ dependencies = [
     "python-dotenv>=1.0",
     "sqlalchemy>=2.0",
     "alembic>=1.13",
-    "python-multipart>=0.0.9",
-    "langgraph>=0.2",
-    "langgraph-checkpoint-sqlite>=2.0",
     "pdfplumber>=0.11",
-    "pypdfium2>=4.30",
-    "openpyxl>=3.1",
-    "pillow>=10.0",
+    "reportlab>=4.0",  # writes the synthetic reserve-study PDFs (`demo`, `synth`)
 ]
 
 [project.optional-dependencies]
-# Optional LLM support. Tick & Tie's label mapping uses langchain; invoice matching uses the
-# official Anthropic SDK (anthropic[bedrock] adds the Amazon Bedrock Mantle client).
-# Any provider supported by langchain's init_chat_model works, e.g. langchain-anthropic.
-llm = ["langchain>=0.3", "langchain-anthropic>=0.2", "anthropic[bedrock]>=2.9"]
-# Postgres in production: app DB via psycopg, LangGraph checkpoints via PostgresSaver.
-postgres = ["psycopg[binary]>=3.2", "langgraph-checkpoint-postgres>=2.0"]
-dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.5", "reportlab>=4.0"]
+# Claude invoice matching (offline, from the CLI). anthropic[bedrock] adds the Amazon Bedrock client.
+llm = ["anthropic[bedrock]>=2.9"]
+postgres = ["psycopg[binary]>=3.2"]
+dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.5"]
 
 [tool.setuptools.packages.find]
 include = ["app*"]

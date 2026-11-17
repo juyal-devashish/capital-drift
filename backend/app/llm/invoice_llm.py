@@ -169,7 +169,7 @@ def anthropic_transport(provider: str, aws_region: str) -> Transport:
     import anthropic  # optional dependency: pip install ".[llm]"
     from dotenv import load_dotenv
 
-    # Settings read only FINQA_* keys from .env; the SDKs read their own keys (ANTHROPIC_API_KEY,
+    # Settings read only CD_* keys from .env; the SDKs read their own keys (ANTHROPIC_API_KEY,
     # AWS_*) from the environment, so export the rest of .env without overriding real variables.
     load_dotenv(".env", override=False)
 
