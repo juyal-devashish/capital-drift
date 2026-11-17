@@ -5,7 +5,7 @@ Response models decouple the public API from the ORM: internal columns can chang
 breaking the frontend, and FastAPI publishes these shapes in the OpenAPI document (/docs).
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -242,3 +242,90 @@ class SystemStatus(BaseModel):
     anomaly_threshold: float
     counts: dict[str, int]
     runs_by_status: dict[str, int]
+
+
+# ------------------------------------------------------------------ capital planning review queue
+class ReviewItemOut(_ORM):
+    id: str
+    kind: str
+    warning_kind: str | None
+    association_id: str
+    component_id: str | None
+    invoice_id: str | None
+    title: str
+    detail: str
+    amount_at_stake: float
+    opened_on: date
+    status: str
+
+
+class ReviewItemPage(BaseModel):
+    items: list[ReviewItemOut]
+    total: int
+    limit: int
+    offset: int
+
+
+class ReviewActionOut(_ORM):
+    id: int
+    action: str
+    comment: str | None
+    status_before: str | None
+    status_after: str
+    match_before: dict | None
+    match_after: dict | None
+    username: str
+    role: str
+    created_at: datetime
+
+
+class RelatedInvoice(BaseModel):
+    id: str
+    invoice_date: date
+    vendor_name: str
+    memo: str
+    amount: float
+    fund_booked: str
+    label: str
+    component_id: str | None
+    method: str
+    role: Literal["evidence", "candidate"]  # behind the warning, or possibly the missing replacement
+
+
+class ReviewItemDetail(ReviewItemOut):
+    payload: dict
+    invoices: list[RelatedInvoice]
+    actions: list[ReviewActionOut]
+
+
+class ReviewDecisionIn(BaseModel):
+    action: Literal["confirm", "dismiss", "reopen", "comment"]
+    comment: str | None = Field(default=None, max_length=4000)
+
+
+class AssignmentIn(BaseModel):
+    component_id: str | None = Field(description="the part this invoice was for; null means routine upkeep")
+    comment: str | None = Field(default=None, max_length=4000)
+
+
+class QueueChanges(BaseModel):
+    opened: list[str]
+    reopened: list[str]
+    resolved_by_rerun: list[str]
+
+
+class AssignmentOut(BaseModel):
+    item: ReviewItemOut
+    changes: QueueChanges
+
+
+class ComponentOut(_ORM):
+    id: str
+    association_id: str
+    category: str
+    name: str
+    location: str | None
+    useful_life_years: int
+    remaining_life_years: int
+    replacement_cost: float
+    planned_year: int

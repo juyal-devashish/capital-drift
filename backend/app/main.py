@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.agents.runner import get_run_manager
-from app.api import admin, evidence, exceptions, insights, runs, sets
+from app.api import admin, capital, evidence, exceptions, insights, runs, sets
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.db.migrate import upgrade
@@ -63,7 +63,15 @@ def create_app() -> FastAPI:
     def health():
         return {"status": "ok"}
 
-    for router in (sets.router, runs.router, exceptions.router, evidence.router, admin.router, insights.router):
+    for router in (
+        sets.router,
+        runs.router,
+        exceptions.router,
+        evidence.router,
+        admin.router,
+        insights.router,
+        capital.router,
+    ):
         app.include_router(router, prefix="/api")
     return app
 

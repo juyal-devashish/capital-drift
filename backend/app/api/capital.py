@@ -1,0 +1,149 @@
+"""Capital planning review queue: warnings and unsure invoices, decisions and invoice assignments.
+
+Board members read. Property managers and admins decide. Only admins trigger a full rerun.
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import case, func, select
+from sqlalchemy.orm import Session
+
+from app.core.security import CAPITAL_ADMIN_ROLES, CAPITAL_DECIDE_ROLES, CAPITAL_READ_ROLES, User, require_roles
+from app.db.models import Invoice, ReserveComponent, ReviewAction, ReviewItem
+from app.db.session import get_db
+from app.schemas import (
+    AssignmentIn,
+    AssignmentOut,
+    ComponentOut,
+    QueueChanges,
+    RelatedInvoice,
+    ReviewDecisionIn,
+    ReviewItemDetail,
+    ReviewItemOut,
+    ReviewItemPage,
+)
+from app.services import review
+from app.services.llm_matching import reviewed_matches
+
+router = APIRouter(prefix="/capital", tags=["capital"])
+
+_STATUS_ORDER = {"open": 0, "confirmed": 1, "dismissed": 2, "resolved": 3, "resolved_by_rerun": 4}
+
+
+@router.get("/queue", response_model=ReviewItemPage)
+def list_queue(
+    status_: str | None = Query("open", alias="status", description="comma-separated; empty for all"),
+    kind: str | None = Query(None, description="warning | invoice"),
+    association_id: str | None = None,
+    warning_kind: str | None = None,
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles(*CAPITAL_READ_ROLES)),
+):
+    """Warnings before invoices, then the most money at stake first."""
+    stmt = select(ReviewItem)
+    if status_:
+        stmt = stmt.where(ReviewItem.status.in_(status_.split(",")))
+    if kind:
+        stmt = stmt.where(ReviewItem.kind == kind)
+    if association_id:
+        stmt = stmt.where(ReviewItem.association_id == association_id)
+    if warning_kind:
+        stmt = stmt.where(ReviewItem.warning_kind == warning_kind)
+    total = db.scalar(select(func.count()).select_from(stmt.subquery()))
+    order = (
+        case(_STATUS_ORDER, value=ReviewItem.status, else_=9),
+        case({"warning": 0}, value=ReviewItem.kind, else_=1),
+        ReviewItem.amount_at_stake.desc(),
+        ReviewItem.id,
+    )
+    items = db.scalars(stmt.order_by(*order).limit(limit).offset(offset)).all()
+    return ReviewItemPage(items=items, total=total, limit=limit, offset=offset)
+
+
+@router.get("/queue/{item_id}", response_model=ReviewItemDetail)
+def get_item(item_id: str, db: Session = Depends(get_db), _: User = Depends(require_roles(*CAPITAL_READ_ROLES))):
+    item = db.get(ReviewItem, item_id)
+    if item is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Review item not found")
+    roles = {i: "evidence" for i in item.payload.get("invoice_ids", [])}
+    roles.update({i: "candidate" for i in item.payload.get("candidate_invoice_ids", [])})
+    if item.invoice_id:
+        roles[item.invoice_id] = "evidence"
+    matches = {m.invoice_id: m for m in reviewed_matches(db)} if roles else {}
+    invoices = []
+    for inv_id, role in roles.items():
+        inv, m = db.get(Invoice, inv_id), matches.get(inv_id)
+        if inv is None or m is None:
+            continue
+        invoices.append(
+            RelatedInvoice(
+                id=inv.id,
+                invoice_date=inv.invoice_date,
+                vendor_name=inv.vendor_name,
+                memo=inv.memo,
+                amount=inv.amount,
+                fund_booked=inv.fund_booked,
+                label=m.label,
+                component_id=m.component_id,
+                method=m.method,
+                role=role,
+            )
+        )
+    invoices.sort(key=lambda r: (r.invoice_date, r.id))
+    actions = db.scalars(select(ReviewAction).where(ReviewAction.item_id == item.id).order_by(ReviewAction.id)).all()
+    return ReviewItemDetail(
+        **ReviewItemOut.model_validate(item).model_dump(), payload=item.payload, invoices=invoices, actions=actions
+    )
+
+
+@router.post("/queue/{item_id}/decisions", response_model=ReviewItemDetail)
+def decide(
+    item_id: str,
+    body: ReviewDecisionIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(*CAPITAL_DECIDE_ROLES)),
+):
+    """Confirm or dismiss a warning, reopen an item, or add a comment. Every action is logged."""
+    try:
+        review.decide(db, item_id, body.action, body.comment, user)
+    except LookupError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Review item not found") from None
+    except review.ReviewError as e:
+        raise HTTPException(422, str(e)) from None
+    return get_item(item_id, db)
+
+
+@router.post("/invoices/{invoice_id}/assignment", response_model=AssignmentOut)
+def assign_invoice(
+    invoice_id: str,
+    body: AssignmentIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(*CAPITAL_DECIDE_ROLES)),
+):
+    """Say which part an invoice was for (or routine). Reruns warnings and returns what changed."""
+    try:
+        item, changes = review.assign(db, invoice_id, body.component_id, body.comment, user)
+    except LookupError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Invoice not found") from None
+    except review.ReviewError as e:
+        raise HTTPException(422, str(e)) from None
+    return AssignmentOut(item=ReviewItemOut.model_validate(item), changes=QueueChanges(**changes))
+
+
+@router.post("/queue/sync", response_model=QueueChanges)
+def sync(db: Session = Depends(get_db), _: User = Depends(require_roles(*CAPITAL_ADMIN_ROLES))):
+    """Rerun the warnings on the reviewed matches and reconcile the queue."""
+    return QueueChanges(**review.sync_queue(db))
+
+
+@router.get("/components", response_model=list[ComponentOut])
+def components(
+    association_id: str = Query(...),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_roles(*CAPITAL_READ_ROLES)),
+):
+    """The reserve study's parts for one association, for the assignment picker."""
+    return db.scalars(
+        select(ReserveComponent).where(ReserveComponent.association_id == association_id).order_by(ReserveComponent.id)
+    ).all()

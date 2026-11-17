@@ -185,3 +185,83 @@ def test_reviews_do_not_change_the_combined_method(boilers):
         combined = {m.invoice_id: m.label for m in combined_matches(db)}
         reviewed = {m.invoice_id: m.label for m in reviewed_matches(db)}
     assert combined["I-ODD"] == "unsure" and reviewed["I-ODD"] == "routine"
+
+
+BOARD = {"Authorization": "Bearer board-token"}
+MANAGER = {"Authorization": "Bearer manager-token"}
+ADMIN = {"Authorization": "Bearer admin-token"}
+ANALYST = {"Authorization": "Bearer analyst-token"}
+
+
+@pytest.fixture()
+def api(boilers):
+    from fastapi.testclient import TestClient
+
+    from app.db.session import session_scope
+    from app.main import create_app
+    from app.services.review import sync_queue
+
+    with session_scope() as db:
+        sync_queue(db)
+    with TestClient(create_app()) as c:
+        yield c
+
+
+def test_board_members_read_but_cannot_decide(api):
+    page = api.get("/api/capital/queue", headers=BOARD).json()
+    assert [i["id"] for i in page["items"]] == ["W:overdue:G-BOIL-A:2019", "I:I-ODD"], "warnings first"
+    detail = api.get("/api/capital/queue/W:overdue:G-BOIL-A:2019", headers=BOARD).json()
+    assert [(i["id"], i["role"], i["component_id"]) for i in detail["invoices"]] == [
+        ("I-DEP", "candidate", "G-BOIL-B"),
+        ("I-FIN", "candidate", "G-BOIL-B"),
+    ]
+    decision = {"action": "confirm"}
+    assert (
+        api.post("/api/capital/queue/W:overdue:G-BOIL-A:2019/decisions", json=decision, headers=BOARD).status_code
+        == 403
+    )
+    assert (
+        api.post("/api/capital/invoices/I-ODD/assignment", json={"component_id": None}, headers=BOARD).status_code
+        == 403
+    )
+    assert api.post("/api/capital/queue/sync", headers=BOARD).status_code == 403
+    assert api.get("/api/capital/queue", headers=ANALYST).status_code == 403, "Tick & Tie roles don't see it"
+    assert api.get("/api/capital/queue").status_code == 401
+
+
+def test_property_managers_decide_and_every_decision_is_logged(api):
+    url = "/api/capital/queue/W:overdue:G-BOIL-A:2019/decisions"
+    assert api.post(url, json={"action": "dismiss"}, headers=MANAGER).status_code == 422
+    r = api.post(url, json={"action": "confirm", "comment": "boiler is 40 years old"}, headers=MANAGER)
+    assert r.status_code == 200 and r.json()["status"] == "confirmed"
+    actions = r.json()["actions"]
+    assert [(a["action"], a["username"], a["status_after"]) for a in actions] == [
+        ("rerun", "system", "open"),
+        ("confirm", "max", "confirmed"),
+    ]
+    assert (
+        api.post("/api/capital/queue/W:nope/decisions", json={"action": "confirm"}, headers=MANAGER).status_code == 404
+    )
+
+
+def test_assignment_over_the_api_reports_what_the_rerun_changed(api):
+    body = {"component_id": "G-BOIL-A", "comment": "contract 77 is Bldg A"}
+    api.post("/api/capital/invoices/I-DEP/assignment", json=body, headers=MANAGER)
+    r = api.post("/api/capital/invoices/I-FIN/assignment", json=body, headers=MANAGER)
+    assert r.status_code == 200
+    assert r.json()["changes"]["resolved_by_rerun"] == ["W:overdue:G-BOIL-A:2019"]
+    assert r.json()["changes"]["opened"] == ["W:overdue:G-BOIL-B:2019"]
+    bad = api.post("/api/capital/invoices/I-ODD/assignment", json={"component_id": "X-1"}, headers=MANAGER)
+    assert bad.status_code == 422
+    assert (
+        api.post("/api/capital/invoices/NOPE/assignment", json={"component_id": None}, headers=MANAGER).status_code
+        == 404
+    )
+    assert api.post("/api/capital/queue/sync", headers=MANAGER).status_code == 403
+    assert api.post("/api/capital/queue/sync", headers=ADMIN).json() == {
+        "opened": [],
+        "reopened": [],
+        "resolved_by_rerun": [],
+    }
+    parts = api.get("/api/capital/components", params={"association_id": "G"}, headers=BOARD).json()
+    assert [p["id"] for p in parts] == ["G-BOIL-A", "G-BOIL-B"]
