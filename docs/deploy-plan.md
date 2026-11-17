@@ -1,6 +1,6 @@
 # AWS deploy plan
 
-**Status:** plan only. Nothing has been created in AWS. Every step that creates or changes an AWS resource waits for an explicit go-ahead, and the platform is confirmed first.
+**Status:** not pursued. On 2026-11-17 the decision was not to deploy on AWS, and nothing was created there. The plan is kept for reference. Two of the code changes below matter for a local `docker compose` run too: the results file missing from the image, and the missing `.dockerignore` files.
 
 ## What changed since the original plan
 

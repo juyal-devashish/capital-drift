@@ -30,7 +30,7 @@ Three changes come from FiXA's own site (fixai.tech, read on 2026-11-16). Its HO
 ## Week 2: polish (optional)
 
 1. ✅ A forecast of which associations run out of reserve money first (done 2026-11-17; see [results.md](results.md)).
-2. Deploy on AWS. Only with your go-ahead. App Runner closed to new customers on 2026-04-30, so the plan now uses ECS Express Mode (Fargate), RDS, and S3 with CloudFront; Bedrock isn't needed at run time. Options, costs and decisions are in [deploy-plan.md](deploy-plan.md).
+2. ~~Deploy on AWS.~~ Dropped on 2026-11-17 at your call. The plan that was written is kept in [deploy-plan.md](deploy-plan.md) for reference.
 3. A 2-minute walkthrough recording and a short message to FiXA's founders.
 
 ## Rules
