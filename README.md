@@ -21,7 +21,7 @@ Full tables, scoring rules and caveats are in [docs/results.md](docs/results.md)
 | Matching, held-out seeds 11–13 | Rules alone: 85–88% right over all invoices. |
 | Warnings, held-out seeds 11–13 (rules only) | **21 of 21** deferred replacements and cost overruns caught. 8 of 15 early failures caught, at a median of about 16 months after onset. Most false alarms come from matching, not the detector. |
 | Review queue, held-out seed 12 | A simulated manager placing only the candidate invoices beside past-due warnings (13 invoices) cut false alarms from 10 to 2, with no planted problem lost. This is an upper bound. |
-| Forecast backtest, fresh seeds 14–17 | Forecasting from 2020, it called **24 of 26** associations that ran short by 2025 (the plain study schedule called 19), with 5 false calls. |
+| Forecast backtest, fresh seeds 14–17 (flat contributions) | Forecasting from 2020, it called **24 of 26** associations that ran short by 2025 (the plain study schedule called 19), with 5 false calls. |
 
 These are synthetic results, and the same author wrote the generator and the code that reads it, so treat them as optimistic.
 
@@ -30,7 +30,7 @@ These are synthetic results, and the same author wrote the generator and the cod
 You need Python 3.12 and Node 18 or later.
 
 ```bash
-uv venv --python 3.12 .venv && source .venv/bin/activate
+uv venv --seed --python 3.12 .venv && source .venv/bin/activate
 ```
 
 ```bash

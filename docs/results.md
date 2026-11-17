@@ -230,7 +230,7 @@ The synthetic study gives one contribution figure and an inflation rate for cost
 
 **Backtest.** The forecast runs from the end of 2020 using only invoices up to then (rules-only matches), and is compared with the balances that actually followed in 2021–2025. Those actual balances use true replacement spend and the same contribution rule. The scoring rules are in `backend/app/evals/forecast.py`.
 
-The baseline is the plain study schedule: every planned replacement on time, at plan cost. Seeds 14–17 were first run after the forecast was written. Seeds 7 and 11–13 were used while building it.
+The baseline is the plain study schedule: every planned replacement on time, at plan cost. The scoring rules for inputs, actual balances, the band and running short were fixed before the first run. The one-dollar tolerance, the separate count of zero-width years, final-year coverage and both baselines were added after seeing the first results. Seeds 14–17 were first run after the forecast was written. Seeds 7 and 11–13 were used while building it.
 
 | Contributions | Seeds | Ran short in 2021–25 | Already short in 2020 | Forecast called (false) | Plain schedule called (false) | Band held the balance |
 | --- | --- | --- | --- | --- | --- | --- |

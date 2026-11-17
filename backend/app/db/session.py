@@ -1,9 +1,9 @@
 """
 Engine and session factory.
 
-Sessions are short-lived and scoped to one unit of work (one request, or one tool call inside an
-agent run). Use :func:`session_scope` everywhere outside FastAPI handlers so commits and rollbacks
-are never forgotten.
+Sessions are short-lived and scoped to one unit of work (one request, or one CLI step). Use
+:func:`session_scope` everywhere outside FastAPI handlers so commits and rollbacks are never
+forgotten.
 """
 
 from collections.abc import Iterator
@@ -38,7 +38,7 @@ def get_engine() -> Engine:
         url = get_settings().resolved_database_url
         kwargs = {"pool_pre_ping": True}
         if url.startswith("sqlite"):
-            # Background worker threads share the engine; SQLite needs this flag for that.
+            # FastAPI runs sync handlers in a thread pool that shares the engine; SQLite needs this flag.
             kwargs["connect_args"] = {"check_same_thread": False, "timeout": 30}
         _engine = create_engine(url, **kwargs)
         if url.startswith("sqlite"):

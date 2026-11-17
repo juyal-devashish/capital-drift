@@ -2,7 +2,9 @@
 Backtest the reserve forecast: forecast from the end of ``as_of`` using only what was known then, and
 compare with the balances that followed.
 
-Rules, fixed before the first run:
+Rules. The inputs, actual balance, band and running-short definitions were fixed before the first run;
+the one-dollar tolerance, the separate count of zero-width years, final-year coverage and the two
+baselines were added after seeing the first results, to measure more fairly, not to change them:
 
 * **Inputs** use only invoices dated on or before 31 December of ``as_of``: their matches, the
   completed projects and cost ratios, and the failing-early warnings a replay to that day raises.
