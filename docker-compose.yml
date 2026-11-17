@@ -8,7 +8,7 @@ services:
     environment:
       FINQA_DATA_DIR: /data
       # Replace these demo tokens (or wire up SSO) before exposing the service.
-      FINQA_AUTH_TOKENS: ${FINQA_AUTH_TOKENS:-analyst-token:alice:analyst,controller-token:carol:controller,auditor-token:arun:auditor,admin-token:adam:admin}
+      FINQA_AUTH_TOKENS: ${FINQA_AUTH_TOKENS:-analyst-token:alice:analyst,controller-token:carol:controller,auditor-token:arun:auditor,admin-token:adam:admin,board-token:bea:board_member,manager-token:max:property_manager}
       FINQA_LLM_MODEL: ${FINQA_LLM_MODEL:-}
       FINQA_LOG_JSON: "true"
       # For Postgres instead of SQLite, uncomment the db service and set:

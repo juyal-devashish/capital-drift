@@ -51,6 +51,8 @@ def test_users_and_system_are_admin_only_and_hide_secrets(client):
         "alice": "analyst",
         "arun": "auditor",
         "carol": "controller",
+        "bea": "board_member",
+        "max": "property_manager",
     }
     alice = next(u for u in users if u["username"] == "alice")
     assert alice["runs_started"] == 1 and alice["last_active"]

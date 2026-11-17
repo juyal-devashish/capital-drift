@@ -73,7 +73,8 @@ class Settings(BaseSettings):
     # Demo bearer tokens: "token:username:role,...". Replace with SSO/OIDC in production.
     auth_tokens: str = Field(
         default="analyst-token:alice:analyst,controller-token:carol:controller,"
-        "auditor-token:arun:auditor,admin-token:adam:admin"
+        "auditor-token:arun:auditor,admin-token:adam:admin,"
+        "board-token:bea:board_member,manager-token:max:property_manager"
     )
     # Browser origins allowed to call the API (the React dev server by default).
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
