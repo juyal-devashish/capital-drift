@@ -61,6 +61,8 @@ def list_queue(
     order = (
         case(_STATUS_ORDER, value=ReviewItem.status, else_=9),
         case({"warning": 0}, value=ReviewItem.kind, else_=1),
+        # Past-due warnings first: their candidate invoices clear most false alarms (docs/results.md).
+        case({"overdue": 0, "over_budget": 1, "failing_early": 2}, value=ReviewItem.warning_kind, else_=3),
         ReviewItem.amount_at_stake.desc(),
         ReviewItem.id,
     )

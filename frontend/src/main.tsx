@@ -2,7 +2,7 @@
 import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { ADMIN_ROLES, AuthProvider, useAuth } from "./auth";
+import { ADMIN_ROLES, AuthProvider, CAPITAL_READ_ROLES, QA_ROLES, useAuth } from "./auth";
 import { Layout } from "./components/Layout";
 import { EmptyState, Loading } from "./components/Marks";
 import { ToastProvider } from "./components/Toast";
@@ -16,6 +16,11 @@ import { Reports } from "./pages/Reports";
 import { Runs } from "./pages/Runs";
 import { System } from "./pages/System";
 import { Users } from "./pages/Users";
+import { CapitalAssociation } from "./pages/capital/Association";
+import { Board } from "./pages/capital/Board";
+import { CapitalItem } from "./pages/capital/Item";
+import { CapitalQueue } from "./pages/capital/Queue";
+import { CapitalResults } from "./pages/capital/Results";
 import { Login } from "./pages/Login";
 import { Overview } from "./pages/Overview";
 import { Queue } from "./pages/Queue";
@@ -50,9 +55,29 @@ function Guard({ children, admin = false }: { children: ReactNode; admin?: boole
   return <>{children}</>;
 }
 
-/** Old links used "/?set_id=..." for the queue; send them to its new home. */
+/** Capital planning screens: board members, property managers, auditors and admins. */
+function CapitalGuard({ children }: { children: ReactNode }) {
+  const { can } = useAuth();
+  if (!can(...CAPITAL_READ_ROLES))
+    return (
+      <EmptyState icon="shield" title="Capital planning isn't part of your role" action={<Link className="button" to="/">Back to the overview</Link>}>
+        Board members, property managers, auditors and admins can open these screens.
+      </EmptyState>
+    );
+  return <>{children}</>;
+}
+
+/** Tick & Tie's financial QA screens; capital-only roles are sent to the board view instead. */
+function QaGuard({ children }: { children: ReactNode }) {
+  const { can } = useAuth();
+  return can(...QA_ROLES) ? <>{children}</> : <Navigate to="/capital" replace />;
+}
+
+/** Old links used "/?set_id=..." for the queue; send them to its new home. Capital-only roles start on the board. */
 function Home() {
   const location = useLocation();
+  const { can } = useAuth();
+  if (!can(...QA_ROLES)) return <Navigate to="/capital" replace />;
   return location.search ? <Navigate to={`/queue${location.search}`} replace /> : <Overview />;
 }
 
@@ -79,16 +104,21 @@ createRoot(document.getElementById("root")!).render(
               }
             >
               <Route index element={<Home />} />
-              <Route path="queue" element={<Queue />} />
-              <Route path="exceptions/:id" element={<ExceptionView />} />
-              <Route path="sets" element={<Sets />} />
-              <Route path="sets/:id" element={<SetView />} />
-              <Route path="runs" element={<Runs />} />
-              <Route path="runs/:id" element={<RunView />} />
-              <Route path="companies" element={<Companies />} />
-              <Route path="companies/:id" element={<CompanyView />} />
-              <Route path="reports" element={<Reports />} />
-              <Route path="audit" element={<AuditLog />} />
+              <Route path="capital" element={<CapitalGuard><Board /></CapitalGuard>} />
+              <Route path="capital/queue" element={<CapitalGuard><CapitalQueue /></CapitalGuard>} />
+              <Route path="capital/queue/:id" element={<CapitalGuard><CapitalItem /></CapitalGuard>} />
+              <Route path="capital/associations/:id" element={<CapitalGuard><CapitalAssociation /></CapitalGuard>} />
+              <Route path="capital/results" element={<CapitalGuard><CapitalResults /></CapitalGuard>} />
+              <Route path="queue" element={<QaGuard><Queue /></QaGuard>} />
+              <Route path="exceptions/:id" element={<QaGuard><ExceptionView /></QaGuard>} />
+              <Route path="sets" element={<QaGuard><Sets /></QaGuard>} />
+              <Route path="sets/:id" element={<QaGuard><SetView /></QaGuard>} />
+              <Route path="runs" element={<QaGuard><Runs /></QaGuard>} />
+              <Route path="runs/:id" element={<QaGuard><RunView /></QaGuard>} />
+              <Route path="companies" element={<QaGuard><Companies /></QaGuard>} />
+              <Route path="companies/:id" element={<QaGuard><CompanyView /></QaGuard>} />
+              <Route path="reports" element={<QaGuard><Reports /></QaGuard>} />
+              <Route path="audit" element={<QaGuard><AuditLog /></QaGuard>} />
               <Route path="help" element={<Help />} />
               <Route path="admin/users" element={<Guard admin><Users /></Guard>} />
               <Route path="admin/system" element={<Guard admin><System /></Guard>} />

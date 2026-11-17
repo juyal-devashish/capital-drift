@@ -10,7 +10,7 @@ import { useAsync } from "../hooks";
 import { usePageTitle } from "../prefs";
 import type { Role } from "../types";
 
-const ROLES: Role[] = ["analyst", "controller", "auditor", "admin"];
+const ROLES: Role[] = ["analyst", "controller", "auditor", "admin", "board_member", "property_manager"];
 const PERMISSIONS: { what: string; roles: Role[] }[] = [
   { what: "View exceptions, evidence, reports and the audit log", roles: ["analyst", "controller", "auditor", "admin"] },
   { what: "Confirm, reject or correct exceptions", roles: ["analyst", "controller", "admin"] },

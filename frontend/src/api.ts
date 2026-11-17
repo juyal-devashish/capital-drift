@@ -1,7 +1,14 @@
 // Typed API client. Every request carries the bearer token of the signed-in user; errors are
 // turned into ApiError with the server's "detail" message so screens can show it verbatim.
 import type {
+  AssociationTimeline,
   AuditPage,
+  Board,
+  CapitalResults,
+  ComponentInfo,
+  QueueChanges,
+  ReviewItemDetail,
+  ReviewItemPage,
   Company,
   CompanyInput,
   DecisionAction,
@@ -117,8 +124,39 @@ export interface DecisionBody {
   override_value?: number;
 }
 
+export interface QueueFilters {
+  status?: string;
+  kind?: string;
+  association_id?: string;
+  warning_kind?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/** Every item status, for "show all" (an empty status would fall back to the server's default, open). */
+export const ALL_ITEM_STATUSES = "open,confirmed,dismissed,resolved,resolved_by_rerun";
+
 export const api = {
   me: () => request<Me>("/me"),
+  capital: {
+    board: () => request<Board>("/capital/board"),
+    association: (id: string) => request<AssociationTimeline>(`/capital/associations/${encodeURIComponent(id)}`),
+    queue: (f: QueueFilters) => request<ReviewItemPage>(`/capital/queue${qs(f as Record<string, string | number | undefined>)}`),
+    item: (id: string) => request<ReviewItemDetail>(`/capital/queue/${encodeURIComponent(id)}`),
+    decide: (id: string, action: "confirm" | "dismiss" | "reopen" | "comment", comment?: string) =>
+      request<ReviewItemDetail>(`/capital/queue/${encodeURIComponent(id)}/decisions`, {
+        method: "POST",
+        body: JSON.stringify({ action, comment }),
+      }),
+    assign: (invoiceId: string, componentId: string | null, comment?: string) =>
+      request<{ item: ReviewItemDetail; changes: QueueChanges }>(`/capital/invoices/${encodeURIComponent(invoiceId)}/assignment`, {
+        method: "POST",
+        body: JSON.stringify({ component_id: componentId, comment }),
+      }),
+    components: (associationId: string) => request<ComponentInfo[]>(`/capital/components${qs({ association_id: associationId })}`),
+    sync: () => request<QueueChanges>("/capital/queue/sync", { method: "POST" }),
+    results: () => request<CapitalResults>("/capital/results"),
+  },
   summary: () => request<Summary>("/summary"),
   companies: () => request<Company[]>("/companies"),
   createCompany: (c: CompanyInput) => request<Company>("/companies", { method: "POST", body: JSON.stringify(c) }),

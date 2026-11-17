@@ -12,6 +12,8 @@ const ROLE_DUTIES: Record<Role, string[]> = {
   controller: ["Oversees the queue and reports", "Records decisions on exceptions", "Follows progress per company"],
   auditor: ["Reads every exception and its evidence", "Inspects the audit log and review traces", "Cannot change anything"],
   admin: ["Uploads documents and adds companies", "Sets the review rules", "Manages access and watches system status"],
+  board_member: ["Sees which associations are red and why", "Reads the capital review queue and its log", "Cannot change anything"],
+  property_manager: ["Works the capital review queue", "Confirms or dismisses warnings", "Says which part an invoice was for"],
 };
 
 const SECTIONS = [

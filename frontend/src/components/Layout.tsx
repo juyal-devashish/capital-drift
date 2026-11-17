@@ -6,7 +6,7 @@
 import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api";
-import { ADMIN_ROLES, ROLE_NAMES, useAuth } from "../auth";
+import { ADMIN_ROLES, CAPITAL_READ_ROLES, QA_ROLES, ROLE_NAMES, useAuth } from "../auth";
 import { useAsync, useHotkeys, usePolling } from "../hooks";
 import { useSavedViews, useSidebarCollapsed, useTheme, type Theme } from "../prefs";
 import { CommandPalette } from "./CommandPalette";
@@ -184,7 +184,10 @@ export function Layout() {
   const [pendingG, setPendingG] = useState(false);
   const { views, remove } = useSavedViews();
 
-  const summary = useAsync(() => api.summary(), []);
+  const qa = can(...QA_ROLES); // Tick & Tie's financial QA screens
+  const capital = can(...CAPITAL_READ_ROLES); // Capital Drift's capital planning screens
+  // Board members and property managers can't read the QA summary; don't ask for it.
+  const summary = useAsync(() => (qa ? api.summary() : Promise.resolve(null)), [qa]);
   const s = summary.data;
   const running = (s?.runs_by_status.running ?? 0) + (s?.runs_by_status.queued ?? 0);
   usePolling(
@@ -243,7 +246,10 @@ export function Layout() {
             <span className="brand-mark" aria-hidden="true">
               <Icon name="check" size={16} />
             </span>
-            <span className="brand-name">Tick &amp; Tie</span>
+            <span className="brand-name">
+              {capital ? "Capital Drift" : "Tick & Tie"}
+              {capital && <small className="brand-credit">built on Tick &amp; Tie</small>}
+            </span>
           </Link>
           <button className="icon-button sidebar-close" aria-label="Close menu" onClick={() => setDrawer(false)}>
             <Icon name="x" />
@@ -251,6 +257,17 @@ export function Layout() {
         </div>
 
         <nav className="sidebar-scroll">
+          {capital && (
+            <div className="nav-group">
+              {qa && <span className="nav-heading">Capital planning</span>}
+              <NavItem to="/capital" end icon="building" label="Board view" />
+              <NavItem to="/capital/queue" icon="inbox" label="Review queue" active={location.pathname.startsWith("/capital/queue")} />
+              <NavItem to="/capital/results" icon="chart" label="Results" />
+            </div>
+          )}
+          {qa && (
+          <>
+          {capital && <span className="nav-heading nav-heading-gap">Financial QA</span>}
           <div className="nav-group">
             <NavItem to="/" end icon="home" label="Overview" />
             <NavItem
@@ -289,6 +306,8 @@ export function Layout() {
             ))}
             {views.length === 0 && !collapsed && <p className="nav-tip">Save any filtered queue with “Save view” to pin it here.</p>}
           </div>
+          </>
+          )}
 
           {can(...ADMIN_ROLES) && (
             <div className="nav-group">
@@ -316,11 +335,15 @@ export function Layout() {
           <button className="icon-button hamburger" aria-label="Open menu" aria-expanded={drawer} onClick={() => setDrawer(true)}>
             <Icon name="menu" />
           </button>
-          <button className="search-trigger" onClick={() => setPalette(true)}>
-            <Icon name="search" size={16} />
-            <span>Search sets, companies, exceptions…</span>
-            <kbd className="kbd">Ctrl K</kbd>
-          </button>
+          {qa ? (
+            <button className="search-trigger" onClick={() => setPalette(true)}>
+              <Icon name="search" size={16} />
+              <span>Search sets, companies, exceptions…</span>
+              <kbd className="kbd">Ctrl K</kbd>
+            </button>
+          ) : (
+            <span className="topbar-title">Capital Drift Monitor</span>
+          )}
           <div className="topbar-right">
             {running > 0 && (
               <Link to="/runs?status=running,queued" className="live-pill">
@@ -344,7 +367,7 @@ export function Layout() {
         </main>
       </div>
 
-      <CommandPalette open={palette} onClose={() => setPalette(false)} onShortcuts={() => setHelp(true)} />
+      {qa && <CommandPalette open={palette} onClose={() => setPalette(false)} onShortcuts={() => setHelp(true)} />}
       <Modal open={help} title="Keyboard shortcuts" onClose={() => setHelp(false)}>
         <table className="shortcut-table">
           <tbody>

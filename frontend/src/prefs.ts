@@ -85,6 +85,8 @@ export function useSidebarCollapsed() {
 /** Set the browser tab title for the current page. */
 export function usePageTitle(title: string | null | undefined) {
   useEffect(() => {
-    document.title = title ? `${title} · Tick & Tie` : "Tick & Tie";
+    // Capital planning pages carry the Capital Drift name; the inherited QA pages keep Tick & Tie's.
+    const brand = window.location.pathname.startsWith("/capital") ? "Capital Drift" : "Tick & Tie";
+    document.title = title ? `${title} · ${brand}` : brand;
   }, [title]);
 }
