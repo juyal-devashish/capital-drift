@@ -11,6 +11,8 @@ WORKDIR /app
 COPY pyproject.toml alembic.ini ./
 COPY migrations ./migrations
 COPY app ./app
+# The results page reads this offline results file (settings.capital_results_file -> /app/results/).
+COPY results ./results
 # Postgres extras included so the same image runs on SQLite (default) or Postgres.
 RUN pip install --upgrade pip && pip install ".[postgres]"
 
