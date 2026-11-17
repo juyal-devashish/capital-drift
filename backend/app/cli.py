@@ -59,7 +59,7 @@ def cmd_synth(args) -> None:
     result = {"out": str(out.resolve()), "written": written, "answer_key": key.summary()}
     if not args.no_load:
         with session_scope() as db:
-            result["loaded"] = load_dataset(db, out)
+            result["loaded"] = load_dataset(db, out, studies=args.studies)
     print(json.dumps(result, indent=2))
 
 
@@ -182,6 +182,7 @@ def main() -> None:
     y.add_argument("--associations", type=int, default=20)
     y.add_argument("--out", default=str(settings.data_dir / "synth"))
     y.add_argument("--no-load", action="store_true", help="write the files only")
+    y.add_argument("--studies", choices=["pdf", "csv"], default="pdf", help="read reserve studies from PDF or CSV")
     args = p.parse_args()
 
     upgrade()  # every command works against an up-to-date schema

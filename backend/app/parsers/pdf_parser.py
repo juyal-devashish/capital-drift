@@ -212,3 +212,8 @@ def _add_item(result, metric, col, w: _Word, label, unit: Unit, title, page_no, 
             location=location,
         )
     )
+
+
+# Public names for other table readers (the reserve-study reader reuses the line rebuilding).
+Word = _Word
+group_lines = _lines

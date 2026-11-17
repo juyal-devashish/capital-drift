@@ -18,9 +18,9 @@ def data():
 
 def _digest(directory) -> str:
     h = hashlib.sha256()
-    for name in sorted(p.name for p in directory.iterdir()):
-        h.update(name.encode())
-        h.update((directory / name).read_bytes())
+    for path in sorted(p for p in directory.rglob("*") if p.is_file()):
+        h.update(str(path.relative_to(directory)).encode())
+        h.update(path.read_bytes())
     return h.hexdigest()
 
 
@@ -137,7 +137,9 @@ def test_load_puts_only_client_data_in_the_database(env, tmp_path):
     written = write_dataset(*generate(seed=3, n_associations=6), out)
     with session_scope() as db:
         loaded = load_dataset(db, out)
-    assert loaded == written
+    assert loaded["invoices.csv"] == written["invoices.csv"]
+    assert loaded["reserve_components"] == written["reserve_study.csv"]
+    assert loaded["reserve_studies"] == written["reserve_studies"] == 6
 
     with session_scope() as db:
         assert db.scalar(select(func.count()).select_from(Portfolio)) == 3

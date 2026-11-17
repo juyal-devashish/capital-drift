@@ -1,10 +1,10 @@
 """
 Write a synthetic dataset to disk and load it into the app database.
 
-The CSV files stand in for what a client would hand over: a portfolio list, association details, a
-reserve study export and an accounting system's invoice export. The answer key is written next to
-them as JSON, and :func:`load_dataset` never reads it, so the app only ever sees what a client
-would send.
+The files stand in for what a client would hand over: a portfolio list, association details, each
+association's reserve study (as a PDF report, plus a CSV export of the same table) and an
+accounting system's invoice export. The answer key is written next to them as JSON, and
+:func:`load_dataset` never reads it, so the app only ever sees what a client would send.
 """
 
 import csv
@@ -17,6 +17,7 @@ from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.db.models import Association, Invoice, Portfolio, ReserveComponent
+from app.parsers.reserve_study_pdf import parse_reserve_study
 from app.synth.generator import (
     AnswerKey,
     SynthAssociation,
@@ -32,6 +33,7 @@ FILES = {
     "reserve_study.csv": SynthComponent,
     "invoices.csv": SynthInvoice,
 }
+STUDIES_DIR = "reserve_studies"  # one PDF per association: <association id>.pdf
 ANSWER_KEY = "answer_key.json"
 README = (
     "SYNTHETIC DATA. Every association, vendor, invoice and amount here is made up.\n"
@@ -41,7 +43,12 @@ README = (
 
 
 def write_dataset(dataset: SynthDataset, key: AnswerKey, out_dir: Path) -> dict[str, int]:
-    """Write the four CSV files, the answer key and a README. Returns row counts per file."""
+    """Write the four CSV files, the reserve study PDFs, the answer key and a README.
+
+    Returns row counts per CSV file, and the number of PDFs under ``reserve_studies``.
+    """
+    from app.synth.report_pdf import write_all  # reportlab is only needed to generate data
+
     out_dir.mkdir(parents=True, exist_ok=True)
     rows = {
         "portfolios.csv": dataset.portfolios,
@@ -58,6 +65,7 @@ def write_dataset(dataset: SynthDataset, key: AnswerKey, out_dir: Path) -> dict[
             for item in items:
                 writer.writerow({k: ("" if v is None else v) for k, v in asdict(item).items()})
         counts[name] = len(items)
+    counts[STUDIES_DIR] = write_all(dataset.associations, dataset.components, out_dir / STUDIES_DIR)
     (out_dir / ANSWER_KEY).write_text(json.dumps(key.to_json(), indent=1, sort_keys=True), encoding="utf-8")
     (out_dir / "README.txt").write_text(README, encoding="utf-8")
     return counts
@@ -72,13 +80,56 @@ def _none(value: str) -> str | None:
     return value or None
 
 
-def load_dataset(db: Session, data_dir: Path) -> dict[str, int]:
-    """Replace all capital-planning rows with the CSV files in ``data_dir``.
+def _study_components(data_dir: Path, associations: list[Association]) -> list[ReserveComponent]:
+    """Read every association's reserve study PDF.
 
-    Reads only the four CSV files. Raises ``FileNotFoundError`` if any is missing and ``ValueError``
-    (with the file and line) if a row can't be parsed, so a bad export fails loudly.
+    The funding summary in each PDF updates its association. Any reader warning (a row it couldn't
+    read, a missing funding figure, a missing file) raises ``ValueError`` listing all of them, so
+    nothing is loaded from a study that was only partly read.
     """
-    for name in FILES:
+    problems: list[str] = []
+    components: list[ReserveComponent] = []
+    for assoc in associations:
+        path = data_dir / STUDIES_DIR / f"{assoc.id}.pdf"
+        if not path.is_file():
+            problems.append(f"{path} is missing")
+            continue
+        study = parse_reserve_study(path)
+        problems += [f"{path.name}: {w}" for w in study.warnings]
+        for key, value in study.funding.items():
+            setattr(assoc, key, value)
+        components += [
+            ReserveComponent(
+                id=f"{assoc.id}-{c.ref}",
+                association_id=assoc.id,
+                category=c.category,
+                name=c.name,
+                location=c.location,
+                useful_life_years=c.useful_life_years,
+                remaining_life_years=c.remaining_life_years,
+                replacement_cost=c.replacement_cost,
+                planned_year=c.planned_year,
+            )
+            for c in study.components
+        ]
+    if problems:
+        raise ValueError("reserve studies could not be read cleanly:\n" + "\n".join(problems))
+    return components
+
+
+def load_dataset(db: Session, data_dir: Path, studies: str = "pdf") -> dict[str, int]:
+    """Replace all capital-planning rows with the client files in ``data_dir``.
+
+    ``studies`` picks where the reserve study comes from: ``"pdf"`` reads the reports under
+    ``reserve_studies/`` (and takes the funding figures from them), ``"csv"`` reads
+    ``reserve_study.csv``. Never reads the answer key. Raises ``FileNotFoundError`` if a needed file
+    is missing and ``ValueError`` (with the file and line) if something can't be parsed, so a bad
+    export fails loudly.
+    """
+    if studies not in ("pdf", "csv"):
+        raise ValueError(f"studies must be 'pdf' or 'csv', not {studies!r}")
+    needed = [n for n in FILES if not (studies == "pdf" and n == "reserve_study.csv")]
+    for name in needed:
         if not (data_dir / name).is_file():
             raise FileNotFoundError(f"{data_dir / name} is missing")
 
@@ -87,18 +138,21 @@ def load_dataset(db: Session, data_dir: Path) -> dict[str, int]:
 
     counts: dict[str, int] = {}
 
-    def load(name: str, build) -> None:
+    def load(name: str, build) -> list:
         rows = _read(data_dir / name)
+        objects = []
         for line, row in enumerate(rows, start=2):
             try:
-                db.add(build(row))
+                objects.append(build(row))
             except (KeyError, ValueError) as exc:
                 raise ValueError(f"{name} line {line}: {exc!r}") from exc
+        db.add_all(objects)
         db.flush()
         counts[name] = len(rows)
+        return objects
 
     load("portfolios.csv", lambda r: Portfolio(id=r["id"], name=r["name"]))
-    load(
+    associations = load(
         "associations.csv",
         lambda r: Association(
             id=r["id"],
@@ -115,20 +169,28 @@ def load_dataset(db: Session, data_dir: Path) -> dict[str, int]:
             annual_contribution=float(r["annual_contribution"]),
         ),
     )
-    load(
-        "reserve_study.csv",
-        lambda r: ReserveComponent(
-            id=r["id"],
-            association_id=r["association_id"],
-            category=r["category"],
-            name=r["name"],
-            location=_none(r["location"]),
-            useful_life_years=int(r["useful_life_years"]),
-            remaining_life_years=int(r["remaining_life_years"]),
-            replacement_cost=float(r["replacement_cost"]),
-            planned_year=int(r["planned_year"]),
-        ),
-    )
+    if studies == "pdf":
+        components = _study_components(data_dir, associations)
+        db.add_all(components)
+        db.flush()
+        counts[STUDIES_DIR] = len(associations)
+        counts["reserve_components"] = len(components)
+    else:
+        loaded = load(
+            "reserve_study.csv",
+            lambda r: ReserveComponent(
+                id=r["id"],
+                association_id=r["association_id"],
+                category=r["category"],
+                name=r["name"],
+                location=_none(r["location"]),
+                useful_life_years=int(r["useful_life_years"]),
+                remaining_life_years=int(r["remaining_life_years"]),
+                replacement_cost=float(r["replacement_cost"]),
+                planned_year=int(r["planned_year"]),
+            ),
+        )
+        counts["reserve_components"] = len(loaded)
     load(
         "invoices.csv",
         lambda r: Invoice(

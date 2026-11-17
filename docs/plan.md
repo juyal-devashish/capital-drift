@@ -20,7 +20,7 @@ Three changes come from FiXA's own site (fixai.tech, read on 2026-11-16). Its HO
 | Day | Step | Done when |
 | --- | --- | --- |
 | 1 ✅ | Data model and fake-data generator | Tables migrate on Postgres. The generator makes the 20 associations, invoices and answer key. Tests pass. |
-| 2 ★ | Reserve studies as PDFs | The generator also writes each association's reserve study as a PDF report. The app reads the components back from the PDF using Tick & Tie's table parser, and the result matches the CSV exactly. |
+| 2 ★ ✅ | Reserve studies as PDFs | The generator also writes each association's reserve study as a PDF report. The app reads the components back from the PDF using Tick & Tie's table parser, and the result matches the CSV exactly. |
 | 3 | Invoice sorting with rules | Each invoice is marked upkeep, a building part, or unsure. Accuracy is scored against the answer key. |
 | 4 | AI sorting for the leftovers | Claude handles the unsure ones (stubbed in tests). Before/after accuracy and cost are reported. |
 | 5 ★ | Repair-or-replace warnings | Each building part's spend is checked against plan over time. A warning reads as a repair-or-replace call, for example: "repairs on this boiler now cost more each year than replacing it would; consider moving the replacement up." It reports how early the warnings fire and how many are false alarms. |
@@ -42,6 +42,7 @@ Three changes come from FiXA's own site (fixai.tech, read on 2026-11-16). Its HO
 
 ## Settled
 
+- Day 2 done on 2026-11-16: each association's reserve study is also a 3-page PDF report (cover with funding summary, component inventory, replacement schedule). The app loads components and funding figures from the PDFs by default. All 300 studies across seeds 1-15 read back exactly. A row it can't read is a warning, and the loader refuses a study with any warning.
 - Day 1 done on 2026-11-16: tables migrate on SQLite and Postgres 17. `python -m app.cli synth` writes and loads the data. Loading twice replaces rather than duplicates.
 
 - Tick & Tie is separate from the user's Tech Observer work (confirmed on 2026-11-16).

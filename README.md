@@ -43,6 +43,6 @@ To generate the synthetic portfolio and load it into the app database:
 cd backend && ../.venv/bin/python -m app.cli synth --seed 7
 ```
 
-It writes four CSV files and `answer_key.json` to `backend/data/synth/` and loads only the CSV files.
+It writes four CSV files, one reserve study PDF per association (`reserve_studies/A01.pdf` and so on) and `answer_key.json` to `backend/data/synth/`. It loads the CSV files and reads the reserve studies from the PDFs; `--studies csv` reads `reserve_study.csv` instead. It never loads the answer key.
 
 `make test` runs the backend tests and the frontend typecheck. `make dev-backend` and `make dev-frontend` start the API on :8000 and the UI on :5173. The `seed` and `eval-*` targets need Tick & Tie's test corpus (`../finqa-testdata`), which isn't included. They'll be replaced by the synthetic generator described in the plan.
