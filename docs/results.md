@@ -51,3 +51,39 @@ cd backend && ../.venv/bin/python -m app.cli match
 ```bash
 cd backend && ../.venv/bin/python -m app.cli score-matches --answer-key data/synth/answer_key.json
 ```
+
+## Invoice matching: rules, then Claude for the leftovers (day 4, 2026-11-16)
+
+Claude Opus 5.5 (low effort, Claude API) was asked only about the 442 invoices the rules left unsure on seed 7. It picks routine, a component, or unsure. Code checks the component exists, applies the 15% repair/replacement rule, and raises wrong-fund flags. Claude never sees the booked fund or the answer key. Scoring rules are unchanged from day 3.
+
+| Seed 7 | Coverage | Component accuracy | Precision on decided | Dollar-weighted | Repairs | Replacements | Wrong-fund flags |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Rules only | 88.2% | 86.7% | 98.3% | 92.8% | 64.4% | 95.0% | 71/80 (2 wrong) |
+| Rules + Claude | **95.3%** | **93.3%** | 97.9% | **97.2%** | **81.9%** | **98.1%** | **80/80** (2 wrong) |
+
+**The run:**
+
+- 442 invoices asked: 432 live calls plus 10 from the trial cache.
+- Outcomes: 267 answered, 175 left unsure by Claude. No errors, refusals, invalid answers or truncations.
+- Tokens: 41.7k input and 35.9k output; 534.6k input tokens served from the prompt cache, with 23.9k written to it.
+- Estimated cost: **$1.22** at list price.
+- Each call took about 2 seconds.
+
+**Claude's own answers:** 247 of 267 right (92.5%). All 20 misses fall into two groups:
+
+- **8 memos name the wrong building.** These are the generator's planted data-entry errors. Claude followed the memo, as any reader would, and the rules miss these too. Nothing on the invoice could reveal them.
+- **12 are "mulch top-up".** The answer key files them under playground equipment, while Claude calls them routine grounds upkeep. That's a labelling judgement in the generator, not a clear mistake. They're still counted as wrong, because the scoring rules were set before the results.
+
+**Still unsure after both steps:** 175 invoices (172 repairs, 3 replacements), mostly memos that say nothing ("Labor and materials per ticket"), or a part with look-alikes in several buildings and no building named. These go to the review queue (day 6).
+
+**Caveats:** this is one seed. Claude isn't fully consistent at low effort: in the 10-call trial, the same memo ("coping stone") was matched once and left unsure once. The responses are cached in `backend/data/llm_cache/` (git-ignored), so re-scoring costs nothing.
+
+**Reproduce** (live calls cost money; cached answers are reused):
+
+```bash
+cd backend && ../.venv/bin/python -m app.cli match-llm --max-calls 450
+```
+
+```bash
+cd backend && ../.venv/bin/python -m app.cli score-matches --answer-key data/synth/answer_key.json --method combined
+```

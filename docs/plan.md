@@ -22,7 +22,7 @@ Three changes come from FiXA's own site (fixai.tech, read on 2026-11-16). Its HO
 | 1 ✅ | Data model and fake-data generator | Tables migrate on Postgres. The generator makes the 20 associations, invoices and answer key. Tests pass. |
 | 2 ★ ✅ | Reserve studies as PDFs | The generator also writes each association's reserve study as a PDF report. The app reads the components back from the PDF using Tick & Tie's table parser, and the result matches the CSV exactly. |
 | 3 ✅ | Invoice sorting with rules | Each invoice is marked upkeep, a building part, or unsure. Accuracy is scored against the answer key. |
-| 4 🔧 | AI sorting for the leftovers | Claude handles the unsure ones (stubbed in tests). Before/after accuracy and cost are reported. |
+| 4 ✅ | AI sorting for the leftovers | Claude handles the unsure ones (stubbed in tests). Before/after accuracy and cost are reported. |
 | 5 ★ | Repair-or-replace warnings | Each building part's spend is checked against plan over time. A warning reads as a repair-or-replace call, for example: "repairs on this boiler now cost more each year than replacing it would; consider moving the replacement up." It reports how early the warnings fire and how many are false alarms. |
 | 6 ★ | Review queue and roles | Warnings and unsure matches land in Tick & Tie's queue. Property managers decide; every decision is logged. Roles become board member, property manager and admin. |
 | 7–8 ★ | Screens | A board view (read-only: which associations are red, and why, in plain words) and a manager view (the queue, the association timeline of plan vs. actual with warnings), plus a results page. |
@@ -42,7 +42,7 @@ Three changes come from FiXA's own site (fixai.tech, read on 2026-11-16). Its HO
 
 ## Settled
 
-- Day 4 built on 2026-11-16, not yet run live: Claude (Opus 5.5, low effort) is asked only about invoices the rules left unsure, picks routine, a component, or unsure, and code applies the repair/replacement rule and validates the component. Every attempt, including failures, goes to `llm_attempts`. Responses are cached by request hash. Tests use stub responses. A live run on seed 7 is 442 calls, estimated at about $4-5; it waits for the user's go-ahead.
+- Day 4 done on 2026-11-16: Claude Opus 5.5 answers the invoices the rules leave unsure. On seed 7, rules + Claude reach 93.3% component accuracy (rules alone 86.7%) and catch all 80 wrong-fund invoices, for $1.22 of API calls. Details in [results.md](results.md).
 - Day 3 done on 2026-11-16: rules decide 87-89% of invoices and are right on about 98% of those; 85-88% component accuracy over all invoices on held-out seeds. Results and caveats are in [results.md](results.md).
 - Day 2 done on 2026-11-16: each association's reserve study is also a 3-page PDF report (cover with funding summary, component inventory, replacement schedule). The app loads components and funding figures from the PDFs by default. All 300 studies across seeds 1-15 read back exactly. A row it can't read is a warning, and the loader refuses a study with any warning.
 - Day 1 done on 2026-11-16: tables migrate on SQLite and Postgres 17. `python -m app.cli synth` writes and loads the data. Loading twice replaces rather than duplicates.
