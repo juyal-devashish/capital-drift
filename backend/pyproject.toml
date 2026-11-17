@@ -25,9 +25,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Optional LLM support (label mapping fallback + exception explanations).
+# Optional LLM support. Tick & Tie's label mapping uses langchain; invoice matching uses the
+# official Anthropic SDK (anthropic[bedrock] adds the Amazon Bedrock Mantle client).
 # Any provider supported by langchain's init_chat_model works, e.g. langchain-anthropic.
-llm = ["langchain>=0.3", "langchain-anthropic>=0.2"]
+llm = ["langchain>=0.3", "langchain-anthropic>=0.2", "anthropic[bedrock]>=2.9"]
 # Postgres in production: app DB via psycopg, LangGraph checkpoints via PostgresSaver.
 postgres = ["psycopg[binary]>=3.2", "langgraph-checkpoint-postgres>=2.0"]
 dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.5", "reportlab>=4.0"]

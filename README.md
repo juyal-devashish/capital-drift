@@ -45,4 +45,16 @@ cd backend && ../.venv/bin/python -m app.cli synth --seed 7
 
 It writes four CSV files, one reserve study PDF per association (`reserve_studies/A01.pdf` and so on) and `answer_key.json` to `backend/data/synth/`. It loads the CSV files and reads the reserve studies from the PDFs; `--studies csv` reads `reserve_study.csv` instead. It never loads the answer key.
 
+To match invoices with rules, then ask Claude about the ones the rules left unsure:
+
+```bash
+cd backend && ../.venv/bin/python -m app.cli match
+```
+
+```bash
+cd backend && ../.venv/bin/python -m app.cli match-llm --max-calls 10
+```
+
+`match-llm` makes live, paid calls (Claude API with `ANTHROPIC_API_KEY` or an `ant auth login` profile, or Amazon Bedrock; see `backend/.env.example`). It stops at `--max-calls` and caches every response under `backend/data/llm_cache/`, so a re-run only pays for invoices it hasn't asked about. `--cached-only` never calls. `score-matches --method combined` scores rules plus Claude.
+
 `make test` runs the backend tests and the frontend typecheck. `make dev-backend` and `make dev-frontend` start the API on :8000 and the UI on :5173. The `seed` and `eval-*` targets need Tick & Tie's test corpus (`../finqa-testdata`), which isn't included. They'll be replaced by the synthetic generator described in the plan.

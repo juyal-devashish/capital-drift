@@ -51,6 +51,24 @@ class Settings(BaseSettings):
     # Hard cap on LLM calls per run (cost control).
     llm_max_calls_per_run: int = 50
 
+    # --- Invoice matching with Claude (app/agents/invoice_llm.py) --------------------------------
+    # "anthropic" (Claude API; ANTHROPIC_API_KEY or an `ant auth login` profile) or "bedrock"
+    # (Amazon Bedrock through the Mantle client; AWS credentials and match_llm_aws_region).
+    match_llm_provider: str = "anthropic"
+    # Claude API model id; on Bedrock the same id with an "anthropic." prefix is used.
+    match_llm_model: str = "claude-opus-5-5"
+    match_llm_aws_region: str = "us-east-1"
+    # Classification is a short task: low effort keeps thinking and cost down.
+    match_llm_effort: str = "low"
+    match_llm_max_tokens: int = 4000
+    # Hard cap on live calls per run. Small by default so nothing large runs by accident.
+    match_llm_max_calls: int = 10
+    # Prices for the cost estimate in the run summary (USD per million tokens, first-party rates).
+    match_llm_input_price: float = 4.0
+    match_llm_output_price: float = 20.0
+    # Responses are cached here by prompt hash, so re-scoring or re-running never pays twice.
+    match_llm_cache_file: str = "llm_cache/invoice_matches.jsonl"
+
     # --- Security --------------------------------------------------------------------------------
     # Demo bearer tokens: "token:username:role,...". Replace with SSO/OIDC in production.
     auth_tokens: str = Field(

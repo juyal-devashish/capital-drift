@@ -23,8 +23,10 @@ reserve_components     one line of the association's reserve study: a building p
                        useful life, replacement cost and planned replacement year
 invoices               vendor invoices as exported from the accounting system; the fund they were
                        booked to is the association's own coding, which can be wrong
-invoice_matches        what a matcher decided for each invoice: routine, repair or replacement of
-                       which component, with confidence, reasons and flags
+invoice_matches        what each matcher (rules, llm) decided for each invoice: routine, repair or
+                       replacement of which component, with confidence, reasons and flags
+llm_attempts           every invoice sent to Claude (or held back by the budget), with the outcome,
+                       raw answer, token counts and errors; failures are kept, never dropped
 
 The answer key for synthetic data (true component per invoice, planted problems) is never stored
 in these tables; see app/synth.
@@ -356,15 +358,42 @@ class Invoice(Base):
 
 
 class InvoiceMatch(Base):
-    """What a matcher decided about one invoice. Replaced on every run of that method."""
+    """What one matcher decided about one invoice. Replaced on every run of that method.
+
+    One row per (invoice, method), so the rules' answer and Claude's answer sit side by side.
+    """
 
     __tablename__ = "invoice_matches"
 
     invoice_id: Mapped[str] = mapped_column(ForeignKey("invoices.id", ondelete="CASCADE"), primary_key=True)
+    method: Mapped[str] = mapped_column(String(20), primary_key=True)  # rules | llm | reviewer
     label: Mapped[str] = mapped_column(String(16))  # routine | repair | replacement | unsure
     component_id: Mapped[str | None] = mapped_column(ForeignKey("reserve_components.id"), index=True)
     confidence: Mapped[float] = mapped_column(Float)
-    method: Mapped[str] = mapped_column(String(20))  # rules | llm | reviewer
     reasons: Mapped[list[str]] = mapped_column(JSON, default=list)
     flags: Mapped[list[str]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class LLMAttemptRecord(Base):
+    """Every invoice sent to (or held back from) Claude: answers, refusals, invalid output, errors."""
+
+    __tablename__ = "llm_attempts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[str] = mapped_column(String(36), index=True)
+    invoice_id: Mapped[str] = mapped_column(ForeignKey("invoices.id", ondelete="CASCADE"), index=True)
+    status: Mapped[str] = mapped_column(String(12))  # ok | unsure | invalid | refused | truncated | error | budget
+    model: Mapped[str] = mapped_column(String(60))
+    from_cache: Mapped[bool] = mapped_column(Boolean, default=False)
+    component_id: Mapped[str | None] = mapped_column(String(40))
+    answer: Mapped[dict | None] = mapped_column(JSON)
+    raw_text: Mapped[str | None] = mapped_column(Text)
+    error: Mapped[str | None] = mapped_column(Text)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cache_read_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cache_write_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    request_id: Mapped[str | None] = mapped_column(String(80))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

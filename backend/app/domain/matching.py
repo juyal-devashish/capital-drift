@@ -290,7 +290,7 @@ def match_invoices(
 
     by_id = {i.id: i for i in invoices}
     for r in results.values():
-        _fund_flag(r, by_id[r.invoice_id])
+        fund_flag(r, by_id[r.invoice_id])
     return [results[i.id] for i in invoices]
 
 
@@ -311,7 +311,9 @@ def _match_one(inv: InvoiceLike, candidates: list[_Candidate], assoc: Associatio
         # A component trade with only one possible component (after the building filter) is still a match.
         fits = [c for s, c in scored if trade and trade in c.trades and s > 0]
         if len(fits) == 1:
-            return _with_work_type(inv, fits[0], assoc, 0.6, [*reasons, "only component this trade works on here"])
+            return with_work_type(
+                inv, fits[0].component, assoc, 0.6, [*reasons, "only component this trade works on here"]
+            )
         return MatchResult(inv.id, "unsure", None, 0.0, [*reasons, "no component named and no single fit"])
 
     best_score, best = evidence[0]
@@ -322,22 +324,23 @@ def _match_one(inv: InvoiceLike, candidates: list[_Candidate], assoc: Associatio
     margin = best_score - (runner_up or 0.0)
     confidence = min(0.5 + 0.1 * margin, 0.95)
     hit = ", ".join(sorted(_hits(best.words, terms)))
-    return _with_work_type(inv, best, assoc, confidence, [*reasons, f"memo mentions {hit}"])
+    return with_work_type(inv, best.component, assoc, confidence, [*reasons, f"memo mentions {hit}"])
 
 
-def _with_work_type(
-    inv: InvoiceLike, cand: _Candidate, assoc: AssociationLike, confidence: float, reasons: list[str]
+def with_work_type(
+    inv: InvoiceLike, component: ComponentLike, assoc: AssociationLike, confidence: float, reasons: list[str]
 ) -> MatchResult:
-    share = inv.amount / inflated_cost(cand.component, assoc, inv.invoice_date.year)
+    """Repair or replacement by the capital threshold, for an invoice already tied to ``component``."""
+    share = inv.amount / inflated_cost(component, assoc, inv.invoice_date.year)
     label = "replacement" if share >= CAPITAL_THRESHOLD else "repair"
     reasons = [*reasons, f"{share:.0%} of replacement cost"]
     flags = []
     if label == "repair" and REPLACEMENT_WORDS.search(inv.memo):
         flags.append("wording_says_replacement")
-    return MatchResult(inv.id, label, cand.component.id, round(confidence, 2), reasons, flags)
+    return MatchResult(inv.id, label, component.id, round(confidence, 2), reasons, flags)
 
 
-def _fund_flag(result: MatchResult, inv: InvoiceLike) -> None:
+def fund_flag(result: MatchResult, inv: InvoiceLike) -> None:
     """Compare the booked fund with what the label implies (only for decided invoices)."""
     if result.label == "unsure":
         return

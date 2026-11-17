@@ -7,7 +7,8 @@ Command-line entry points.
     python -m app.cli eval  --corpus ../../finqa-testdata --split dev --out runs/dev
     python -m app.cli synth --seed 7 --out data/synth      # synthetic capital-planning portfolio
     python -m app.cli match                                # rule-match every invoice to a component
-    python -m app.cli score-matches --answer-key data/synth/answer_key.json
+    python -m app.cli match-llm --max-calls 10                # ask Claude about unsure invoices (costs money)
+    python -m app.cli score-matches --answer-key data/synth/answer_key.json --method combined
 
 ``eval`` runs the real agent graph over corpus sets (same code path as the API, without HTTP),
 then writes predictions.jsonl / timings.csv / sets.txt in the format the corpus' score.py reads,
@@ -74,24 +75,32 @@ def cmd_match(_args) -> None:
 
 def cmd_score_matches(args) -> None:
     """Score stored matches against a synthetic answer key (offline evaluation only)."""
-    from app.db.models import Invoice, InvoiceMatch
-    from app.domain.matching import MatchResult
+    from app.db.models import Invoice
     from app.evals.matching import score_matches
+    from app.services.llm_matching import combined_matches, stored_matches
 
     truths = json.loads(Path(args.answer_key).read_text(encoding="utf-8"))["invoices"]
     with session_scope() as db:
         invoices = list(db.scalars(select(Invoice)))
-        rows = list(db.scalars(select(InvoiceMatch).where(InvoiceMatch.method == args.method)))
-        results = [
-            MatchResult(m.invoice_id, m.label, m.component_id, m.confidence, list(m.reasons), list(m.flags), m.method)
-            for m in rows
-        ]
+        results = combined_matches(db) if args.method == "combined" else stored_matches(db, args.method)
     if len(results) != len(invoices):
-        sys.exit(f"{len(results)} {args.method} matches for {len(invoices)} invoices; run `match` first")
+        sys.exit(
+            f"{len(results)} {args.method} matches for {len(invoices)} invoices; "
+            "run `match` first (or use --method combined)"
+        )
     report = score_matches(results, invoices, truths)
     if args.out:
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)
         Path(args.out).write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print(json.dumps(report, indent=2))
+
+
+def cmd_match_llm(args) -> None:
+    """Ask Claude about the invoices the rules left unsure. Live calls cost money; see --max-calls."""
+    from app.services.llm_matching import run_llm_matching
+
+    with session_scope() as db:
+        report = run_llm_matching(db, live=not args.cached_only, max_calls=args.max_calls)
     print(json.dumps(report, indent=2))
 
 
@@ -216,9 +225,12 @@ def main() -> None:
     y.add_argument("--no-load", action="store_true", help="write the files only")
     y.add_argument("--studies", choices=["pdf", "csv"], default="pdf", help="read reserve studies from PDF or CSV")
     sub.add_parser("match", help="rule-match every invoice to a reserve component")
+    ml = sub.add_parser("match-llm", help="ask Claude about invoices the rules left unsure (live calls cost money)")
+    ml.add_argument("--max-calls", type=int, help="cap on live calls (default: FINQA_MATCH_LLM_MAX_CALLS, 10)")
+    ml.add_argument("--cached-only", action="store_true", help="use cached responses only; no live calls")
     sm = sub.add_parser("score-matches", help="score stored matches against a synthetic answer key")
     sm.add_argument("--answer-key", required=True)
-    sm.add_argument("--method", default="rules")
+    sm.add_argument("--method", default="rules", choices=["rules", "llm", "combined"])
     sm.add_argument("--out", help="also write the report to this JSON file")
     args = p.parse_args()
 
@@ -236,6 +248,8 @@ def main() -> None:
         cmd_synth(args)
     elif args.cmd == "match":
         cmd_match(args)
+    elif args.cmd == "match-llm":
+        cmd_match_llm(args)
     elif args.cmd == "score-matches":
         cmd_score_matches(args)
 
