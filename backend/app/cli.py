@@ -6,6 +6,8 @@ Command-line entry points.
     python -m app.cli run   C004-FY2024
     python -m app.cli eval  --corpus ../../finqa-testdata --split dev --out runs/dev
     python -m app.cli synth --seed 7 --out data/synth      # synthetic capital-planning portfolio
+    python -m app.cli match                                # rule-match every invoice to a component
+    python -m app.cli score-matches --answer-key data/synth/answer_key.json
 
 ``eval`` runs the real agent graph over corpus sets (same code path as the API, without HTTP),
 then writes predictions.jsonl / timings.csv / sets.txt in the format the corpus' score.py reads,
@@ -61,6 +63,36 @@ def cmd_synth(args) -> None:
         with session_scope() as db:
             result["loaded"] = load_dataset(db, out, studies=args.studies)
     print(json.dumps(result, indent=2))
+
+
+def cmd_match(_args) -> None:
+    from app.services.matching import run_rule_matching
+
+    with session_scope() as db:
+        print(json.dumps(run_rule_matching(db), indent=2))
+
+
+def cmd_score_matches(args) -> None:
+    """Score stored matches against a synthetic answer key (offline evaluation only)."""
+    from app.db.models import Invoice, InvoiceMatch
+    from app.domain.matching import MatchResult
+    from app.evals.matching import score_matches
+
+    truths = json.loads(Path(args.answer_key).read_text(encoding="utf-8"))["invoices"]
+    with session_scope() as db:
+        invoices = list(db.scalars(select(Invoice)))
+        rows = list(db.scalars(select(InvoiceMatch).where(InvoiceMatch.method == args.method)))
+        results = [
+            MatchResult(m.invoice_id, m.label, m.component_id, m.confidence, list(m.reasons), list(m.flags), m.method)
+            for m in rows
+        ]
+    if len(results) != len(invoices):
+        sys.exit(f"{len(results)} {args.method} matches for {len(invoices)} invoices; run `match` first")
+    report = score_matches(results, invoices, truths)
+    if args.out:
+        Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out).write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print(json.dumps(report, indent=2))
 
 
 def _run_set(set_id: str) -> tuple[str, str, float, str]:
@@ -183,6 +215,11 @@ def main() -> None:
     y.add_argument("--out", default=str(settings.data_dir / "synth"))
     y.add_argument("--no-load", action="store_true", help="write the files only")
     y.add_argument("--studies", choices=["pdf", "csv"], default="pdf", help="read reserve studies from PDF or CSV")
+    sub.add_parser("match", help="rule-match every invoice to a reserve component")
+    sm = sub.add_parser("score-matches", help="score stored matches against a synthetic answer key")
+    sm.add_argument("--answer-key", required=True)
+    sm.add_argument("--method", default="rules")
+    sm.add_argument("--out", help="also write the report to this JSON file")
     args = p.parse_args()
 
     upgrade()  # every command works against an up-to-date schema
@@ -197,6 +234,10 @@ def main() -> None:
         cmd_eval(args)
     elif args.cmd == "synth":
         cmd_synth(args)
+    elif args.cmd == "match":
+        cmd_match(args)
+    elif args.cmd == "score-matches":
+        cmd_score_matches(args)
 
 
 if __name__ == "__main__":
