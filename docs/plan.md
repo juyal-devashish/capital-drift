@@ -1,49 +1,42 @@
-# Plan: from Tick & Tie to Capital Drift Monitor
+# Plan
 
-Tick & Tie reconciles the same figure across several documents at one point in time. This project reconciles **planned capital spend** (from a reserve study) against **actual spend** (from invoices) **over time**, per component. The agent runtime, review flow and audit trail carry over. The domain layer is new.
+**What it is:** a tool that checks whether a building's money is going where its repair plan said it would. It sorts invoices to building parts, warns when spending drifts from the plan, and lets a person review the warnings. All data is made up.
 
-## Keep (change little or nothing)
+## Defaults
 
-| Area | Files | Notes |
+These are my recommendations. Change any of them before the step that uses it.
+
+- **Data:** 20 made-up Philadelphia-area associations in 3 kinds (mid-rise condo, garden apartments, single-family HOA), 10 years of invoices (2016–2025) and a 10-year forecast.
+- **Invoices:** about 3,000 with messy vendor names and memos. Roughly 70% routine upkeep, 25% for a planned building part, 5% unclear.
+- **Answer key:** about 15 planted problems (early failures, cost overruns, deferred work, miscoded spend), kept out of the app's database.
+- **AI:** rules first, Claude on Amazon Bedrock for the rest. Tests never call it. Ask before any live run.
+- **Users:** board member (read-only), property manager (reviews), admin.
+- **Stack:** Tick & Tie's runtime (FastAPI, LangGraph, React) on Postgres, deployed on AWS.
+
+## Week 1: a demo you can send
+
+| Day | Step | Done when |
 | --- | --- | --- |
-| Agent runtime | `agents/graph.py`, `agents/runner.py`, `agents/state.py` | Supervisor graph, checkpoints, thread-pool runner. Node list changes. |
-| Tool executor | `agents/tools.py` (executor part) | Validated JSON-schema tools, retries, per-call trace rows. Tool definitions change. |
-| LLM wrapper | `agents/llm.py` | Budgeted calls with a cache. Repurpose from label mapping to invoice matching. |
-| Core | `core/config.py`, `core/logging.py`, `core/security.py` | Rename the `FINQA_` env prefix. |
-| DB plumbing | `db/session.py`, `db/migrate.py`, Alembic | Switch the default to Postgres. |
-| Run, trace and review tables | `Run`, `RunStep`, `ToolCall`, `ExceptionRecord`, `ReviewDecision`, `AppSetting` | Rename `ExceptionRecord` to a general finding with kinds: low-confidence match, drift alert, unmatched invoice. |
-| Review UI shell | `Layout`, `Queue`, `DecisionPanel`, `AuditLog`, `RunView`, `Runs`, `Login`, `Users`, `Toast`, `CommandPalette` | Restyle and relabel. |
+| 1 | Data model and fake-data generator | Tables migrate on Postgres. The generator makes the 20 associations, invoices and answer key. Tests pass. |
+| 2 | Invoice sorting with rules | Each invoice is marked upkeep, a building part, or unsure. Accuracy is scored against the answer key. |
+| 3 | AI sorting for the leftovers | Claude handles the unsure ones (stubbed in tests). Before/after accuracy and cost are reported. |
+| 4 | Drift warnings | Each building part's spend is checked against plan over time. It reports how early the warnings fire and how many are false alarms. |
+| 5 | Review queue | Warnings and unsure matches land in Tick & Tie's queue. Decisions are logged. |
+| 6–7 | Screens | Portfolio view (who's red), association timeline (plan vs. actual, with warnings) and a results page. |
 
-## Replace
+## Week 2: polish (optional)
 
-| Tick & Tie | Becomes |
-| --- | --- |
-| `Company`, `DocumentSet`, `Document`, `LineItem`, `HistoricalBaseline`, `LabelMapping` | `Portfolio`, `Association`, `ReserveComponent` (category, useful life, replacement cost, planned year, remaining life), `Invoice` (vendor, date, amount, memo), `InvoiceMatch` (component, confidence, method, evidence) |
-| `parsers/` (PDF and XLSX figure tables) | CSV and XLSX loaders for reserve studies and invoice exports |
-| `domain/reconcile.py`, `units.py`, `periods.py`, `vocabulary.py` | `domain/matching.py` (rules: vendor trade, keywords, location), `domain/drift.py`, `domain/forecast.py` |
-| Agent nodes: extraction → reconciliation → baseline → exceptions | ingest → match (rules, then LLM for the rest) → drift → forecast → findings |
-| Pages: `Companies`, `CompanyView`, `Sets`, `SetView`, `Upload`, `Reports`, `Rules`, `Overview` | Portfolio overview, association view (component timeline), invoice upload, capital forecast |
-| `TickTieStrip`, `EvidenceViewer` | Match evidence card (invoice text next to the component) |
+1. A forecast of which associations run out of reserve money first.
+2. Deploy on AWS (RDS, App Runner, S3 and CloudFront, Bedrock). Only with your go-ahead.
+3. A 2-minute walkthrough recording and a short message to FiXA's founders.
 
-## New
+## Rules
 
-1. **Synthetic data generator.** It builds reserve studies for about 20 associations and about 3,000 invoices with messy memos, plus planted ground truth: true component per invoice and components with injected early failure. The ground truth stays out of the app database, the same rule Tick & Tie follows.
-2. **Drift detection.** A per-component sequential test (CUSUM or a sequential likelihood ratio) on spend relative to plan, with an alert time and an estimated shift. It draws on the user's change-detection research and Micron drift monitoring.
-3. **Forecast.** Reserve balance by year with uncertainty bands, plus a backtest against a naive baseline.
-4. **Eval.** Match accuracy (top-1, and by method), drift detection delay and false alarms, cost per 1,000 invoices. Report it per split, with the synthetic-data caveat.
-5. **AWS deploy.** RDS Postgres plus App Runner or Lambda for the API, the UI on S3 and CloudFront, Bedrock for the LLM. Only with the user's go-ahead.
+- Make one commit per step, and run `make test` and `make lint` before each.
+- Use only made-up data, labelled as made up wherever it appears.
+- Nothing goes public until you say so.
+- Keep the credit to Shreyash at the top of the README.
 
-## Order of work
+## Settled
 
-1. Data model and Alembic migration, then the synthetic generator with tests.
-2. Rules matcher and eval, then the LLM matcher for the rest.
-3. Drift detection and its eval.
-4. Rework the agent graph and findings around the new nodes.
-5. UI: association timeline, findings queue, portfolio overview.
-6. Forecast panel.
-7. Deploy on AWS, then a 2-minute walkthrough recording.
-
-## Open questions
-
-- ~~Did any Tick & Tie code come from the user's Tech Observer work?~~ **Settled on 2026-11-16:** the user confirmed it's separate from their Tech Observer work, so nothing here is employer code.
-- Should the project keep Tick & Tie's auth roles (analyst, controller, auditor, admin), or switch to board member, property manager and admin?
+- Tick & Tie is separate from the user's Tech Observer work (confirmed on 2026-11-16).
