@@ -167,6 +167,11 @@ def anthropic_transport(provider: str, aws_region: str) -> Transport:
     fallbacks, so a refusal there is recorded as a failed attempt.
     """
     import anthropic  # optional dependency: pip install ".[llm]"
+    from dotenv import load_dotenv
+
+    # Settings read only FINQA_* keys from .env; the SDKs read their own keys (ANTHROPIC_API_KEY,
+    # AWS_*) from the environment, so export the rest of .env without overriding real variables.
+    load_dotenv(".env", override=False)
 
     if provider == "bedrock":
         client = anthropic.AnthropicBedrockMantle(aws_region=aws_region)
