@@ -26,31 +26,78 @@ export function CapitalResults() {
   if (!r.data) return <Loading />;
   const d = r.data;
   const heldOut = d.held_out_seeds.join(", ");
+  const match = d.matching.find((m) => m.seed === d.seed && m.labels === "rules + Claude");
+  const rulesOnly = d.matching.find((m) => m.seed === d.seed && m.labels === "rules");
+  const warn = d.warnings.find((w) => w.seed === d.seed && w.labels === "rules + Claude");
+  const review = d.review.find((v) => v.seed === d.seed);
+  const fc = d.forecast_backtest.find((b) => b.contributions === "flat" && b.group === "fresh");
 
   return (
     <>
       <header className="page-head with-actions">
         <div>
-          <p className="eyebrow">Capital planning</p>
-          <h1>How well it works, on synthetic data</h1>
+          <h1>How well it works</h1>
           <p className="lede">
-            Seed {d.seed} is the demo portfolio and was used for tuning; seeds {heldOut} were held out. Generated {d.generated_on} from the
-            synthetic answer key, which the app itself never loads.
+            The data is made up, with problems planted on purpose, so each step can be scored against the right answers.
           </p>
         </div>
         <SyntheticNote />
       </header>
 
       <div className="stack">
-        <section className="notice">
-          <strong>Read these with care.</strong>
-          <ul style={{ margin: "0.4rem 0 0" }}>
-            {d.caveats.map((c) => (
-              <li key={c}>{c}</li>
-            ))}
-          </ul>
+        <section className="headline-grid" aria-label="Headline numbers">
+          {match && (
+            <div className="card headline">
+              <span className="kpi-label">Invoices filed under the right part</span>
+              <span className="big">{pct(match.component_accuracy)}</span>
+              <p>Rules first, then Claude for the hard ones. Rules alone: {rulesOnly ? pct(rulesOnly.component_accuracy) : "–"}.</p>
+            </div>
+          )}
+          {warn && (
+            <div className="card headline">
+              <span className="kpi-label">Planted problems caught</span>
+              <span className="big">
+                {warn.detected} of {warn.planted}
+              </span>
+              <p>Parts failing early, replacements put off, projects over budget.</p>
+            </div>
+          )}
+          {review && (
+            <div className="card headline">
+              <span className="kpi-label">False alarms after a quick review</span>
+              <span className="big">
+                {review.before.false_alarms} → {review.after.false_alarms}
+              </span>
+              <p>A manager checked {review.invoices_reviewed} suggested invoices. Nothing real was lost.</p>
+            </div>
+          )}
+          {fc && (
+            <div className="card headline">
+              <span className="kpi-label">Forecast: who ran out of money</span>
+              <span className="big">
+                {fc.called_and_ran_short} of {fc.ran_short}
+              </span>
+              <p>
+                Called up to 5 years ahead, on data it had never seen. The reserve plan alone called {fc.plain_called_and_ran_short}.
+              </p>
+            </div>
+          )}
         </section>
 
+        <details className="more">
+          <summary>Read these with care</summary>
+          <div>
+            <ul style={{ margin: 0 }}>
+              {d.caveats.map((c) => (
+                <li key={c}>{c}</li>
+              ))}
+            </ul>
+          </div>
+        </details>
+
+        <details className="more">
+          <summary>See the full tables</summary>
+          <div className="stack">
         <section className="stack">
           <div>
             <h2 style={{ marginBottom: "0.25rem" }}>1. Placing invoices against the reserve study</h2>
@@ -250,6 +297,8 @@ export function CapitalResults() {
             </table>
           </div>
         </section>
+          </div>
+        </details>
       </div>
     </>
   );

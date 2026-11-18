@@ -152,9 +152,11 @@ export function CapitalItem() {
       <section className="stack">
         <div>
           <h2 style={{ marginBottom: "0.25rem" }}>{title}</h2>
-          <p className="quiet" style={{ margin: 0 }}>
-            {hint}
-          </p>
+          {hint && (
+            <p className="quiet" style={{ margin: 0 }}>
+              {hint}
+            </p>
+          )}
         </div>
         <div className="table-wrap">
           <table className="ledger">
@@ -200,7 +202,7 @@ export function CapitalItem() {
       <header className="page-head with-actions">
         <div>
           <p className="eyebrow">
-            <Link to="/queue">Review queue</Link> · <Link to={`/associations/${encodeURIComponent(it.association_id)}`}>{it.association_id}</Link>
+            <Link to="/queue">← Review queue</Link> · <Link to={`/associations/${encodeURIComponent(it.association_id)}`}>{it.association_id}</Link>
           </p>
           <h1>{it.title}</h1>
           <div className="assign-row">
@@ -225,13 +227,13 @@ export function CapitalItem() {
           invoiceTable(
           candidates,
           "Could one of these be the replacement?",
-          "Invoices from this association, big enough to be part of a replacement, that nobody could place or that went to the same kind of part in another building. Placing them correctly reruns the warnings.",
+          "Large invoices from this association that went unfiled, or were filed under a similar part in another building. If one of them is the replacement, the warning is a false alarm.",
           null, // no default: a candidate may well belong to the look-alike part
         )}
         {invoiceTable(
           evidence,
           it.kind === "invoice" ? "The invoice" : "The invoices behind this warning",
-          it.kind === "invoice" ? "Pick the part of the reserve study it paid for, or mark it routine upkeep." : "As currently placed.",
+          it.kind === "invoice" ? "Which part of the reserve plan did this pay for? Or was it routine upkeep?" : "",
           null,
         )}
 

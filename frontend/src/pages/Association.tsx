@@ -9,7 +9,7 @@ import { useAsync } from "../hooks";
 import { usePageTitle } from "../prefs";
 import type { AssociationTimeline, ForecastData, ReviewItem } from "../types";
 import { ForecastChart } from "./ForecastChart";
-import { SyntheticNote } from "./Board";
+import { Reason, SyntheticNote } from "./Board";
 import { ItemStatus, ItemTag } from "./Queue";
 
 const COUNTED = ["open", "confirmed"];
@@ -26,8 +26,7 @@ function Timeline({ a }: { a: AssociationTimeline }) {
     <section className="panel">
       <h2>Plan against actual</h2>
       <p className="quiet" style={{ marginTop: 0 }}>
-        Grey: replacements the study planned that year (inflated). Blue: replacement spend found. Amber: repair spend. Dots: warnings
-        raised that year.
+        What the plan expected to spend on replacements each year, next to what was actually spent. Dots are warnings; click one.
       </p>
       <div className="timeline" style={{ ["--cols" as string]: a.years.length }} role="img" aria-label="Planned and actual capital spend per year">
         {a.years.map((y) => (
@@ -108,21 +107,24 @@ function ForecastPanel({ a }: { a: AssociationTimeline }) {
       <ForecastChart f={f} />
       <div className="legend">
         <span>
-          <i className="lg-history" /> Balance so far (study start + contributions − replacements found)
+          <i className="lg-history" /> So far
         </span>
         <span>
-          <i className="lg-median" /> Middle case
+          <i className="lg-median" /> Forecast
         </span>
         <span>
-          <i className="lg-band" /> 10th–90th percentile, from replacement cost alone
+          <i className="lg-band" /> Likely range
         </span>
         <span>
-          <i className="lg-short" /> Below zero: a modelled shortfall
+          <i className="lg-short" /> Short of money
         </span>
       </div>
-      <p className="quiet" style={{ fontSize: "var(--t-sm)", marginBottom: 0 }}>
-        {a.forecast_assumptions} <Link to="/results">How well this did in a backtest</Link>.
-      </p>
+      <details className="more">
+        <summary>How is this worked out?</summary>
+        <div>
+          {a.forecast_assumptions} <Link to="/results">How well it did in a backtest</Link>.
+        </div>
+      </details>
     </section>
   );
 }
@@ -145,14 +147,13 @@ export function CapitalAssociation() {
       <header className="page-head with-actions">
         <div>
           <p className="eyebrow">
-            <Link to="/">Board view</Link> · {a.id}
+            <Link to="/">← Board view</Link>
           </p>
           <h1>
             <i className={`light light-${s.status}`} aria-hidden="true" /> {a.name}
           </h1>
           <p className="lede">
-            {KIND_NAMES[a.kind] ?? a.kind} in {a.town}, {plural(a.units, "unit")} in {plural(a.buildings, "building")}. Reserve study from{" "}
-            {a.study_year}, assuming {(a.inflation_rate * 100).toFixed(1)}% cost inflation a year; {usd(a.annual_contribution)} a year goes into reserves.
+            {KIND_NAMES[a.kind] ?? a.kind} in {a.town}, {plural(a.units, "unit")}. Puts {usd(a.annual_contribution)} a year into its reserve fund.
           </p>
         </div>
         <SyntheticNote />
@@ -164,7 +165,7 @@ export function CapitalAssociation() {
             <h2>Why it's {s.status}</h2>
             <ul style={{ margin: 0 }}>
               {s.reasons.map((r) => (
-                <li key={r}>{r}</li>
+                <Reason key={r} text={r} />
               ))}
             </ul>
           </section>
@@ -227,8 +228,9 @@ export function CapitalAssociation() {
           </section>
         )}
 
-        <section className="stack">
-          <h2 style={{ margin: 0 }}>The reserve study's parts</h2>
+        <details className="more">
+          <summary>See all {a.parts.length} parts in the reserve plan</summary>
+          <div>
           <div className="table-wrap">
             <table className="ledger compact">
               <thead>
@@ -262,7 +264,8 @@ export function CapitalAssociation() {
               </tbody>
             </table>
           </div>
-        </section>
+          </div>
+        </details>
       </div>
     </>
   );

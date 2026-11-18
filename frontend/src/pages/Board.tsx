@@ -1,47 +1,72 @@
-// Board view: every association, red first, with the reasons in plain words. Read-only for everyone;
-// each warning says whether a property manager has checked it yet.
+// Board view: every association, red first, with the main reasons in plain words, then who runs short
+// of reserve money first. Read-only for everyone; the details sit behind "How is this worked out?".
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { api } from "../api";
+import { api, STATIC } from "../api";
 import { CAPITAL_DECIDE_ROLES, useAuth } from "../auth";
 import { EmptyState, ErrorNote, Loading } from "../components/Marks";
-import { KIND_NAMES, plural, usd } from "../format";
-import type { ForecastRow } from "../types";
+import { KIND_NAMES, usd } from "../format";
 import { useAsync } from "../hooks";
 import { usePageTitle } from "../prefs";
+import type { ForecastRow } from "../types";
 
 const STATUS_WORDS = { red: "Needs attention", amber: "Watch", green: "On plan" } as const;
+const UNCHECKED = " (not yet checked by the manager)";
 
 export function SyntheticNote() {
-  return <span className="synthetic-note">Synthetic data: made-up associations, studies and invoices</span>;
+  // The hosted snapshot already says so in its banner.
+  return STATIC ? null : <span className="synthetic-note">Synthetic data</span>;
+}
+
+/** A reason without the "(not yet checked ...)" tail, which the card shows once as a tag instead. */
+export function Reason({ text }: { text: string }) {
+  const unchecked = text.endsWith(UNCHECKED);
+  const confirmed = /\(confirmed by [^)]+\)$/.exec(text);
+  const plain = unchecked ? text.slice(0, -UNCHECKED.length) : confirmed ? text.slice(0, confirmed.index).trim() : text;
+  return (
+    <li>
+      {plain} {unchecked && <span className="tag-check">not checked yet</span>}
+      {confirmed && <span className="tag-check">confirmed</span>}
+    </li>
+  );
 }
 
 function when(balance: number, year: number | null, share: number): string {
-  if (balance < 0) return `Already short ${usd(-balance)}`;
-  if (year) return `${year} (${Math.round(share * 100)}% of runs)`;
-  return share > 0 ? `Not in the middle case (${Math.round(share * 100)}% of runs)` : "Not within ten years";
+  if (balance < 0) return `Already short by ${usd(-balance)}`;
+  if (year) return `Around ${year}`;
+  return share > 0 ? `Probably not (${Math.round(share * 100)}% chance)` : "Not within 10 years";
 }
 
 function RunsShort() {
   const fc = useAsync(() => api.capital.forecast(), []);
+  const [rising, setRising] = useState(false);
   if (fc.error) return <ErrorNote message={fc.error} onRetry={fc.reload} />;
   if (!fc.data) return <Loading />;
   const rows: ForecastRow[] = fc.data.associations;
   return (
-    <section className="stack" style={{ marginTop: "2rem" }}>
-      <div>
-        <h2 style={{ marginBottom: "0.25rem" }}>Who runs short of reserve money first</h2>
-        <p className="quiet" style={{ margin: 0 }}>
-          A ten-year forecast from the end of {fc.data.as_of}. The study doesn't say whether contributions rise, so both cases are shown.{" "}
-          {fc.data.assumptions}
-        </p>
+    <section className="stack" style={{ marginTop: "2.5rem" }}>
+      <div className="card-head" style={{ marginBottom: 0 }}>
+        <div>
+          <h2 style={{ marginBottom: "0.25rem" }}>Who runs out of reserve money first</h2>
+          <p className="quiet" style={{ margin: 0 }}>
+            A 10-year forecast of each association's reserve fund.
+          </p>
+        </div>
+        <div className="chip-group" role="group" aria-label="Contributions">
+          <button className={`chip${!rising ? " is-active" : ""}`} aria-pressed={!rising} onClick={() => setRising(false)}>
+            Contributions stay flat
+          </button>
+          <button className={`chip${rising ? " is-active" : ""}`} aria-pressed={rising} onClick={() => setRising(true)}>
+            Rise with inflation
+          </button>
+        </div>
       </div>
       <div className="table-wrap">
         <table className="ledger compact">
           <thead>
             <tr>
               <th>Association</th>
-              <th>Flat contributions: short in</th>
-              <th>Rising with inflation: short in</th>
+              <th>Runs short</th>
             </tr>
           </thead>
           <tbody>
@@ -54,13 +79,20 @@ function RunsShort() {
                     </span>
                   </Link>
                 </td>
-                <td>{when(r.start_balance, r.first_short_year, r.share_short)}</td>
-                <td>{when(r.start_balance_rising, r.first_short_year_rising, r.share_short_rising)}</td>
+                <td>
+                  {rising
+                    ? when(r.start_balance_rising, r.first_short_year_rising, r.share_short_rising)
+                    : when(r.start_balance, r.first_short_year, r.share_short)}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      <details className="more">
+        <summary>How is this worked out?</summary>
+        <div>{fc.data.assumptions}</div>
+      </details>
     </section>
   );
 }
@@ -78,9 +110,8 @@ export function Board() {
     <>
       <header className="page-head with-actions">
         <div>
-          <p className="eyebrow">Capital planning</p>
           <h1>Which associations need attention</h1>
-          <p className="lede">Each association's spending checked against its reserve study, with the reasons in plain words.</p>
+          <p className="lede">Each association's spending, checked against its reserve plan. Click a card to see why.</p>
         </div>
         <SyntheticNote />
       </header>
@@ -107,9 +138,10 @@ export function Board() {
               </Link>
             )}
           </div>
-          <p className="rule-note">
-            <strong>How the colours are set.</strong> {b.rule}
-          </p>
+          <details className="more" style={{ marginTop: 0, marginBottom: "1.25rem" }}>
+            <summary>What do the colours mean?</summary>
+            <div>{b.rule}</div>
+          </details>
           <div className="board-grid">
             {b.associations.map((a) => (
               <Link key={a.id} to={`/associations/${encodeURIComponent(a.id)}`} className={`card board-card is-${a.status}`}>
@@ -118,14 +150,14 @@ export function Board() {
                   {a.name}
                 </h3>
                 <p className="sub">
-                  {STATUS_WORDS[a.status]} · {KIND_NAMES[a.kind] ?? a.kind}, {a.town} · {plural(a.units, "unit")}
+                  {STATUS_WORDS[a.status]} · {KIND_NAMES[a.kind] ?? a.kind}, {a.town}
                 </p>
                 {a.reasons.length > 0 ? (
                   <ul>
-                    {a.reasons.slice(0, 4).map((r) => (
-                      <li key={r}>{r}</li>
+                    {a.reasons.slice(0, 2).map((r) => (
+                      <Reason key={r} text={r} />
                     ))}
-                    {a.reasons.length > 4 && <li className="quiet">and {a.reasons.length - 4} more</li>}
+                    {a.reasons.length > 2 && <li className="quiet">and {a.reasons.length - 2} more</li>}
                   </ul>
                 ) : (
                   <p className="sub">Spending matches the plan so far.</p>

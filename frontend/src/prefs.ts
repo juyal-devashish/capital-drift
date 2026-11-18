@@ -48,11 +48,11 @@ export function applyTheme(theme: Theme) {
 
 /** Apply the stored theme before React renders, so the page never flashes the wrong colours. */
 export function initTheme() {
-  applyTheme(read<Theme>("capital-drift.theme", "system"));
+  applyTheme(read<Theme>("capital-drift.theme", "light"));
 }
 
 export function useTheme(): [Theme, (t: Theme) => void] {
-  const [theme, setTheme] = usePref<Theme>("capital-drift.theme", "system");
+  const [theme, setTheme] = usePref<Theme>("capital-drift.theme", "light");
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);

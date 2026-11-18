@@ -8,6 +8,7 @@ import { ROLE_NAMES, useAuth } from "../auth";
 import { useAsync } from "../hooks";
 import { useSidebarCollapsed, useTheme, type Theme } from "../prefs";
 import { Icon, type IconName } from "./Icons";
+import { Tour } from "./Tour";
 
 function NavItem({ to, icon, label, end, active }: { to: string; icon: IconName; label: string; end?: boolean; active?: boolean }) {
   return (
@@ -101,12 +102,8 @@ function SnapshotBanner() {
   const meta = useAsync(() => snapshotMeta(), []);
   return (
     <div className="snapshot-banner" role="note">
-      <strong>Read-only snapshot</strong> of a synthetic demo{meta.data ? `, exported ${meta.data.exported_on}` : ""}. Decisions are turned off
-      here; to work the review queue,{" "}
-      <a href="https://github.com/juyal-devashish/capital-drift#quick-start" target="_blank" rel="noreferrer">
-        run it locally
-      </a>
-      .
+      <strong>Demo with made-up data.</strong> Read-only{meta.data ? `, as of ${meta.data.exported_on}` : ""}: buttons that change things are
+      turned off here.
     </div>
   );
 }
@@ -202,6 +199,7 @@ export function Layout() {
         </header>
         <main className="page" id="main">
           {STATIC && <SnapshotBanner />}
+          <Tour />
           <PageBoundary resetKey={location.pathname}>
             <Outlet />
           </PageBoundary>
