@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from datetime import date
 
+import pytest
+
 from app.domain.capital_view import QueueEntry, association_status, plan_schedule, year_by_year
 from app.domain.matching import MatchResult
 
@@ -119,3 +121,29 @@ def test_board_timeline_and_results_endpoints(boilers, tmp_path, monkeypatch):
         assert c.get("/api/capital/results", headers=board_hdr).status_code == 404
         results.write_text(json.dumps({"label": "SYNTHETIC"}))
         assert c.get("/api/capital/results", headers=board_hdr).json() == {"label": "SYNTHETIC"}
+
+
+def test_export_static_writes_what_a_board_member_sees(boilers, tmp_path, monkeypatch):
+    import json
+    from types import SimpleNamespace
+
+    from app.cli import cmd_export_static
+    from app.core.config import get_settings
+    from app.db.session import session_scope
+    from app.services.review import sync_queue
+
+    results = tmp_path / "results.json"
+    results.write_text(json.dumps({"label": "SYNTHETIC"}))
+    monkeypatch.setattr(get_settings(), "capital_results_file", results)
+    with session_scope() as db:
+        sync_queue(db)
+    out = tmp_path / "demo"
+    cmd_export_static(SimpleNamespace(out=str(out), token="board-token"))
+    queue = json.loads((out / "queue.json").read_text())
+    items = json.loads((out / "items" / "G.json").read_text())
+    assert sorted(items) == sorted(i["id"] for i in queue["items"]) == ["I:I-ODD", "W:overdue:G-BOIL-A:2019"]
+    assert json.loads((out / "associations" / "G.json").read_text())["status"]["status"] == "red"
+    assert json.loads((out / "results.json").read_text()) == {"label": "SYNTHETIC"}
+    assert not any(":" in p.name for p in out.rglob("*")), "file names must work on every file system"
+    with pytest.raises(SystemExit, match="board member"):
+        cmd_export_static(SimpleNamespace(out=str(out), token="manager-token"))

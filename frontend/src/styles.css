@@ -699,3 +699,5 @@ a.count-pill:hover { text-decoration: none; background: var(--red); color: #fff;
 .legend i.lg-median { background: var(--primary); height: 3px; }
 .legend i.lg-band { background: var(--primary-soft); border: 1px solid var(--primary); }
 .legend i.lg-short { background: var(--red-soft); border: 1px solid var(--red-border); }
+.snapshot-banner { margin: -0.5rem 0 1.25rem; padding: 0.6rem 0.85rem; border-radius: var(--radius); background: var(--blue-soft); color: var(--blue-text); border: 1px solid var(--blue-border); font-size: var(--t-sm); }
+.snapshot-banner a { font-weight: 650; }

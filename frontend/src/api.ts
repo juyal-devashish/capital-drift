@@ -94,7 +94,10 @@ export interface QueueFilters {
 /** Every item status, for "show all" (an empty status would fall back to the server's default, open). */
 export const ALL_ITEM_STATUSES = "open,confirmed,dismissed,resolved,resolved_by_rerun";
 
-export const api = {
+/** True in the read-only static build (`vite build --mode static`, served from GitHub Pages). */
+export const STATIC = import.meta.env.MODE === "static";
+
+const liveApi = {
   me: () => request<Me>("/me"),
   capital: {
     board: () => request<Board>("/capital/board"),
@@ -117,3 +120,75 @@ export const api = {
     forecast: () => request<ForecastBoard>("/capital/forecast"),
   },
 };
+
+// ------------------------------------------------------------------ read-only static snapshot
+// The static build serves the JSON written by `python -m app.cli export-static`: real API responses
+// as a board member sees them. Reads come from those files; anything that would change data refuses.
+
+const READ_ONLY = "This is a read-only snapshot. Run the app locally to work the review queue.";
+const cache = new Map<string, Promise<unknown>>();
+
+function file<T>(name: string): Promise<T> {
+  if (!cache.has(name)) {
+    cache.set(
+      name,
+      fetch(`${import.meta.env.BASE_URL}demo/${name}`).then((r) => {
+        if (!r.ok) throw new ApiError(r.status, r.status === 404 ? "Not in this snapshot" : r.statusText);
+        return r.json();
+      }),
+    );
+  }
+  return cache.get(name) as Promise<T>;
+}
+
+async function staticQueue(f: QueueFilters): Promise<ReviewItemPage> {
+  const all = await file<ReviewItemPage>("queue.json");
+  const statuses = (f.status ?? "open").split(",");
+  const items = all.items.filter(
+    (i) =>
+      statuses.includes(i.status) &&
+      (!f.kind || i.kind === f.kind) &&
+      (!f.association_id || i.association_id === f.association_id) &&
+      (!f.warning_kind || i.warning_kind === f.warning_kind),
+  );
+  const offset = f.offset ?? 0;
+  const limit = f.limit ?? 50;
+  return { items: items.slice(offset, offset + limit), total: items.length, limit, offset };
+}
+
+async function staticItem(id: string): Promise<ReviewItemDetail> {
+  const all = await file<ReviewItemPage>("queue.json");
+  const assoc = all.items.find((i) => i.id === id)?.association_id;
+  if (!assoc) throw new ApiError(404, "Review item not found");
+  const items = await file<Record<string, ReviewItemDetail>>(`items/${assoc}.json`);
+  return items[id];
+}
+
+const refuse = (): Promise<never> => Promise.reject(new ApiError(403, READ_ONLY));
+
+const staticApi: typeof liveApi = {
+  me: async () => ({ username: "visitor", role: "board_member" }),
+  capital: {
+    board: () => file<Board>("board.json"),
+    association: (id) => file<AssociationTimeline>(`associations/${encodeURIComponent(id)}.json`),
+    queue: staticQueue,
+    item: staticItem,
+    decide: refuse,
+    assign: refuse,
+    components: (associationId) => file<ComponentInfo[]>(`components/${encodeURIComponent(associationId)}.json`),
+    sync: refuse,
+    results: () => file<CapitalResults>("results.json"),
+    forecast: () => file<ForecastBoard>("forecast.json"),
+  },
+};
+
+export const api = STATIC ? staticApi : liveApi;
+
+export interface SnapshotMeta {
+  label: string;
+  exported_on: string;
+  associations: number;
+  queue_items: number;
+}
+
+export const snapshotMeta = () => file<SnapshotMeta>("meta.json");

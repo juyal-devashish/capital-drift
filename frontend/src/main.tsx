@@ -1,7 +1,8 @@
 // Entry point: providers, routes and the sign-in guard.
 import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, HashRouter, Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { STATIC } from "./api";
 import { AuthProvider, useAuth } from "./auth";
 import { Layout } from "./components/Layout";
 import { EmptyState, Loading } from "./components/Marks";
@@ -23,6 +24,9 @@ import "./styles.css";
 
 initTheme(); // before the first render, so the page never flashes the wrong theme
 
+// Static hosting (GitHub Pages) can't rewrite deep links to index.html, so the snapshot uses #/ URLs.
+const Router = STATIC ? HashRouter : BrowserRouter;
+
 /** Redirect to sign-in when there is no user, then back here. */
 function Guard({ children }: { children: ReactNode }) {
   const { user, ready } = useAuth();
@@ -43,10 +47,10 @@ function NotFound() {
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <AuthProvider>
-      <BrowserRouter>
+      <Router>
         <ToastProvider>
           <Routes>
-            <Route path="/login" element={<Login />} />
+            <Route path="/login" element={STATIC ? <Navigate to="/" replace /> : <Login />} />
             <Route
               element={
                 <Guard>
@@ -64,7 +68,7 @@ createRoot(document.getElementById("root")!).render(
             </Route>
           </Routes>
         </ToastProvider>
-      </BrowserRouter>
+      </Router>
     </AuthProvider>
   </StrictMode>,
 );

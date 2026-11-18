@@ -3,7 +3,9 @@
 // drawer opened by the hamburger; on wide screens it can collapse to icons.
 import { Component, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { snapshotMeta, STATIC } from "../api";
 import { ROLE_NAMES, useAuth } from "../auth";
+import { useAsync } from "../hooks";
 import { useSidebarCollapsed, useTheme, type Theme } from "../prefs";
 import { Icon, type IconName } from "./Icons";
 
@@ -94,6 +96,21 @@ function UserMenu() {
   );
 }
 
+/** The static snapshot's notice: what this is, when it was taken, and where to run the real thing. */
+function SnapshotBanner() {
+  const meta = useAsync(() => snapshotMeta(), []);
+  return (
+    <div className="snapshot-banner" role="note">
+      <strong>Read-only snapshot</strong> of a synthetic demo{meta.data ? `, exported ${meta.data.exported_on}` : ""}. Decisions are turned off
+      here; to work the review queue,{" "}
+      <a href="https://github.com/juyal-devashish/capital-drift#quick-start" target="_blank" rel="noreferrer">
+        run it locally
+      </a>
+      .
+    </div>
+  );
+}
+
 /** Keeps one broken page from blanking the whole app; resets when the user navigates. */
 class PageBoundary extends Component<{ children: ReactNode; resetKey: string }, { error: Error | null }> {
   state = { error: null as Error | null };
@@ -174,10 +191,17 @@ export function Layout() {
             <Link to="/help" className="icon-button" title="Help & guide" aria-label="Help & guide">
               <Icon name="help" />
             </Link>
-            <UserMenu />
+            {STATIC ? (
+              <a className="button" href="https://github.com/juyal-devashish/capital-drift" target="_blank" rel="noreferrer">
+                <Icon name="external" size={16} /> Code on GitHub
+              </a>
+            ) : (
+              <UserMenu />
+            )}
           </div>
         </header>
         <main className="page" id="main">
+          {STATIC && <SnapshotBanner />}
           <PageBoundary resetKey={location.pathname}>
             <Outlet />
           </PageBoundary>

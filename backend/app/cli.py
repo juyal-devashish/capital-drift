@@ -9,11 +9,13 @@ Command-line entry points. Run from backend/: ``python -m app.cli <command>``.
     sync-queue            rerun warnings on reviewed matches and update the review queue
     score-matches, score-warnings, eval-warnings, eval-review, results
                           offline evaluation against the synthetic answer key
+    export-static         write the read-only snapshot the static site (GitHub Pages) serves
 """
 
 import argparse
 import json
 import sys
+from datetime import date
 from pathlib import Path
 
 from sqlalchemy import select
@@ -180,6 +182,63 @@ def cmd_results(args) -> None:
     print(f"wrote {out}")
 
 
+def cmd_export_static(args) -> None:
+    """Write the read-only snapshot the static site serves: what the API returns to a board member.
+
+    Every file is a real API response, fetched through the app as ``board-token`` would see it, so
+    the static site can't show anything the app wouldn't (the answer key never appears).
+    """
+    from fastapi.testclient import TestClient  # httpx is a dev dependency; this runs locally only
+
+    from app.main import create_app
+
+    out = Path(args.out)
+    for sub in ("associations", "items", "components"):
+        (out / sub).mkdir(parents=True, exist_ok=True)
+    headers = {"Authorization": f"Bearer {args.token}"}
+
+    def get(path: str, **params) -> dict | list:
+        r = client.get(f"/api{path}", headers=headers, params=params)
+        r.raise_for_status()
+        return r.json()
+
+    def write(name: str, data) -> None:
+        (out / name).write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
+
+    with TestClient(create_app()) as client:
+        me = get("/me")
+        if me["role"] != "board_member":
+            sys.exit(f"export as a board member, not {me['role']}: the snapshot must be read-only")
+        board = get("/capital/board")
+        if not board["synced"]:
+            sys.exit("the review queue hasn't been built; run `demo` first")
+        statuses = "open,confirmed,dismissed,resolved,resolved_by_rerun"
+        queue = get("/capital/queue", status=statuses, limit=500)
+        if queue["total"] > len(queue["items"]):
+            sys.exit(f"queue has {queue['total']} items; raise the export limit")
+        write("board.json", board)
+        write("forecast.json", get("/capital/forecast"))
+        write("results.json", get("/capital/results"))
+        write("queue.json", queue)
+        ids = sorted(a["id"] for a in board["associations"])
+        for aid in ids:
+            write(f"associations/{aid}.json", get(f"/capital/associations/{aid}"))
+            write(f"components/{aid}.json", get("/capital/components", association_id=aid))
+            # One file per association: item ids contain colons, which some file systems reject.
+            items = {i["id"]: get(f"/capital/queue/{i['id']}") for i in queue["items"] if i["association_id"] == aid}
+            write(f"items/{aid}.json", items)
+        write(
+            "meta.json",
+            {
+                "label": "Read-only snapshot of the synthetic demo (seed 7).",
+                "exported_on": date.today().isoformat(),
+                "associations": len(ids),
+                "queue_items": queue["total"],
+            },
+        )
+    print(f"wrote {out} ({len(ids)} associations, {queue['total']} queue items)")
+
+
 def cmd_sync_queue(_args) -> None:
     """Rerun warnings on the reviewed matches and reconcile the review queue."""
     from app.services.review import queue_counts, sync_queue
@@ -234,6 +293,9 @@ def main() -> None:
     er.add_argument("--seeds", type=int, nargs="+", default=[12, 13], help="in memory, rules-only, if no key")
     er.add_argument("--out", help="also write the report to this JSON file")
     sub.add_parser("sync-queue", help="rerun warnings on reviewed matches and update the review queue")
+    ex = sub.add_parser("export-static", help="write the read-only JSON snapshot for the static site")
+    ex.add_argument("--out", default=str(Path(__file__).resolve().parents[2] / "frontend" / "static-demo" / "demo"))
+    ex.add_argument("--token", default="board-token", help="a board member's token (the snapshot is read-only)")
     rs = sub.add_parser("results", help="write the results page's file from the answer key (no API calls)")
     rs.add_argument("--answer-key", required=True)
     rs.add_argument("--out", help="default: backend/results/capital_results.json")
@@ -253,6 +315,7 @@ def main() -> None:
         "eval-review": cmd_eval_review,
         "sync-queue": cmd_sync_queue,
         "results": cmd_results,
+        "export-static": cmd_export_static,
     }
     commands[args.cmd](args)
 

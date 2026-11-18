@@ -2,7 +2,7 @@
 // exposes role checks so screens can hide actions a role may not perform. The server enforces
 // the same rules; hiding them here only keeps the UI honest.
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { api, tokenStore, UNAUTHORIZED_EVENT } from "./api";
+import { api, STATIC, tokenStore, UNAUTHORIZED_EVENT } from "./api";
 import type { Me, Role } from "./types";
 
 interface AuthState {
@@ -18,11 +18,13 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<Me | null>(null);
-  const [ready, setReady] = useState(false);
+  // The static snapshot has no sign-in: every visitor reads it as a board member.
+  const [user, setUser] = useState<Me | null>(STATIC ? { username: "visitor", role: "board_member" } : null);
+  const [ready, setReady] = useState(STATIC);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
+    if (STATIC) return;
     if (!tokenStore.get()) {
       setReady(true);
       return;

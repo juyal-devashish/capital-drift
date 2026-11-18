@@ -2,7 +2,7 @@
 
 Checks a homeowners association's spending against its reserve study: invoice matching, repair-or-replace warnings, a review queue and a reserve forecast, on synthetic data. Read [README.md](README.md), then [docs/design.md](docs/design.md) and [docs/results.md](docs/results.md).
 
-The working agreement in the Home Repo (`~/Desktop/claude-home/docs/working-agreement.md`) applies. This file adds:
+Rules for anyone (person or agent) changing this repo:
 
 - **Synthetic data only.** Never use real association data or scrape anyone's app. Label generated data as synthetic wherever it appears, in the UI and in docs.
 - **The answer key stays offline.** The app never loads `answer_key.json`. Only `app/evals`, the tests and the `score-*`, `eval-*` and `results` commands read it.

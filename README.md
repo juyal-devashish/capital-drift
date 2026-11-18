@@ -104,6 +104,21 @@ Run from `backend/` with the virtualenv active (`python -m app.cli <command>`):
 | `warn --method combined` | Raise warnings from rules + Claude matches |
 | `sync-queue` | Rerun warnings on reviewed matches and update the queue |
 | `score-matches`, `score-warnings`, `eval-warnings`, `eval-review`, `results` | Offline evaluation against the answer key |
+| `export-static` | Write the read-only snapshot the hosted demo serves |
+
+## The hosted demo
+
+The live demo is a read-only snapshot served from GitHub Pages: no server, no API key, nothing to sign in to. To refresh it after changing the data or the app, run these from the repo root:
+
+```bash
+cd backend && python -m app.cli export-static
+```
+
+```bash
+cd frontend && npm run build:static
+```
+
+`export-static` writes `frontend/static-demo/demo/`. Every file is a real API response, fetched the way a board member sees it, so the snapshot can't show anything the app wouldn't. `build:static` builds the app to read those files instead of the API. Commit the snapshot, then run **Deploy demo to GitHub Pages** from the Actions tab.
 
 ## Development
 
@@ -128,5 +143,6 @@ backend/
   results/        the results file the Results page shows
   tests/
 frontend/src/     React + TypeScript UI
+frontend/static-demo/  the hosted demo's read-only snapshot (JSON)
 docs/             design and results
 ```

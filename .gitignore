@@ -18,3 +18,6 @@ frontend/dist/
 
 # macOS
 .DS_Store
+
+# Static snapshot build (GitHub Pages); the snapshot JSON itself in static-demo/ is tracked
+frontend/dist-static/
