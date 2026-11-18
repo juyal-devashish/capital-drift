@@ -9,6 +9,8 @@ The Capital Drift Monitor reads an association's **reserve study** (each buildin
 3. **Puts warnings and unplaced invoices in a review queue.** Property managers decide, every decision is logged, and placing an invoice reruns the warnings at once.
 4. **Forecasts each reserve balance** ten years ahead, so the board can see who runs short first.
 
+**Live demo:** https://juyal-devashish.github.io/capital-drift/ (a read-only snapshot; [run it locally](#quick-start) to work the review queue).
+
 **All data is synthetic:** 20 made-up associations near Philadelphia, their reserve studies (as PDFs) and ten years of invoices, with planted problems to find.
 
 ## Results on synthetic data
